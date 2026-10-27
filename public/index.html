@@ -1,0 +1,780 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Social Command</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%228%22 fill=%22%230C0C0D%22/%3E%3Ctext x=%2216%22 y=%2221%22 font-family=%22monospace%22 font-size=%2214%22 fill=%22%23F7F7F5%22 text-anchor=%22middle%22%3Efl%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+/* Layout: slim left rail, command bar, one working canvas per view. Monochrome graphite: ink on paper in light, paper on ink in dark. Status lives in small dots and shapes, never in fills. */
+:root{
+ --bg:#F5F5F4;--surface:#FFFFFF;--raised:#FAFAF9;--sunk:#EDEDEB;
+ --ink:#0C0C0D;--ink2:#56565C;--ink3:#8D8D93;--line:rgba(12,12,13,.08);--line2:rgba(12,12,13,.16);
+ --inv:#0C0C0D;--invfg:#F7F7F5;--glow:rgba(12,12,13,.06);
+ --ok:#3F8F67;--warn:#B07A1E;--bad:#B4453C;
+ --f-display:"Instrument Serif","Iowan Old Style","Times New Roman",serif;
+ --f-body:"Geist",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+ --f-mono:"Geist Mono",ui-monospace,"SF Mono",Menlo,monospace;
+ --ease:cubic-bezier(.16,1,.3,1);--r:14px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+ --bg:#09090A;--surface:#111113;--raised:#161618;--sunk:#0D0D0E;
+ --ink:#F2F2EF;--ink2:#A3A3A9;--ink3:#6B6B72;--line:rgba(242,242,239,.08);--line2:rgba(242,242,239,.16);
+ --inv:#F2F2EF;--invfg:#0C0C0D;--glow:rgba(242,242,239,.06);--ok:#6CC596;--warn:#E0AE55;--bad:#E07A70;color-scheme:dark}}
+:root[data-theme="dark"]{
+ --bg:#09090A;--surface:#111113;--raised:#161618;--sunk:#0D0D0E;
+ --ink:#F2F2EF;--ink2:#A3A3A9;--ink3:#6B6B72;--line:rgba(242,242,239,.08);--line2:rgba(242,242,239,.16);
+ --inv:#F2F2EF;--invfg:#0C0C0D;--glow:rgba(242,242,239,.06);--ok:#6CC596;--warn:#E0AE55;--bad:#E07A70;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{background:var(--bg)}
+body{margin:0;color:var(--ink);font:400 14px/1.5 var(--f-body);-webkit-font-smoothing:antialiased;letter-spacing:-.005em}
+button,input,textarea,select{font:inherit;color:inherit}
+.mono,.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+h1,h2,h3,h4{margin:0;font-weight:600;letter-spacing:-.02em;text-wrap:balance}
+:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:6px}
+a{color:inherit;text-decoration-color:var(--line2);text-underline-offset:3px}
+a:hover{text-decoration-color:var(--ink)}
+
+.app{display:grid;grid-template-columns:232px minmax(0,1fr);min-height:100vh}
+.rail{position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:28px;padding-block:22px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:14px;border-right:1px solid var(--line);background:var(--bg);z-index:5}
+.brand{display:flex;align-items:center;gap:10px;padding:0 8px}
+.mark{width:28px;height:28px;border-radius:8px;background:var(--inv);color:var(--invfg);display:grid;place-items:center;font:600 13px var(--f-mono)}
+.brand b{font-weight:600;letter-spacing:-.02em}.brand small{display:block;color:var(--ink3);font-size:11.5px;letter-spacing:.02em}
+.nav{display:grid;gap:2px;position:relative}
+.nav a{position:relative;display:flex;align-items:center;gap:12px;padding:9px 10px;border-radius:10px;color:var(--ink2);text-decoration:none;font-weight:500;z-index:1;transition:color .25s var(--ease)}
+.nav a:hover{color:var(--ink)}
+.nav a[aria-current="page"]{color:var(--ink)}
+.nav svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.nav .count{margin-left:auto;font:500 11px var(--f-mono);min-width:20px;height:20px;border-radius:99px;display:grid;place-items:center;background:var(--inv);color:var(--invfg);padding:0 6px}
+.nav .count:empty{display:none}
+.nav-ind{position:absolute;left:0;right:0;height:38px;border-radius:10px;background:var(--surface);border:1px solid var(--line);box-shadow:0 1px 2px var(--glow);transition:transform .45s var(--ease);z-index:0}
+.rail-foot{margin-top:auto;display:grid;gap:10px;padding:0 6px}
+.live{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink2)}
+.pulse{width:8px;height:8px;border-radius:50%;background:var(--ok);position:relative;flex:none}
+.pulse::after{content:"";position:absolute;inset:-4px;border-radius:50%;border:1.5px solid var(--ok);animation:ping 2.2s var(--ease) infinite}
+.pulse.off{background:var(--ink3)}.pulse.off::after{display:none}
+@keyframes ping{0%{transform:scale(.5);opacity:.9}100%{transform:scale(1.8);opacity:0}}
+.ghost{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:8px 12px;border-radius:10px;border:1px solid var(--line2);background:transparent;cursor:pointer;font-weight:500;font-size:13px;transition:background .2s,border-color .2s,transform .2s var(--ease)}
+.ghost:hover{background:var(--surface);border-color:var(--ink3)}
+.ghost:active{transform:scale(.97)}
+.ghost svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+
+.main{min-width:0;padding-block:20px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1280px;margin:0 auto;padding:0 12px}
+.bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:6px 0 26px}
+.crumbs{font:500 12px var(--f-mono);color:var(--ink3);letter-spacing:.02em;text-transform:uppercase}
+.bar-r{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.chipline{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:99px;border:1px solid var(--line);font-size:12px;color:var(--ink2);background:var(--surface)}
+.hero{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:28px}
+.hero h1{font:400 clamp(38px,5vw,60px)/1 var(--f-display);letter-spacing:-.02em}
+.hero h1 em{font-style:italic;color:var(--ink2)}
+.hero p{margin:10px 0 0;color:var(--ink2);max-width:60ch;font-size:15px}
+
+.view{animation:viewIn .6s var(--ease) both}
+@keyframes viewIn{from{opacity:0;transform:translateY(10px);filter:blur(4px)}to{opacity:1;transform:none;filter:none}}
+.rise{animation:rise .7s var(--ease) both;animation-delay:calc(var(--i,0)*55ms)}
+@keyframes rise{from{opacity:0;transform:translateY(14px) scale(.985)}to{opacity:1;transform:none}}
+::view-transition-old(root){animation:vtOut .28s var(--ease) both}
+::view-transition-new(root){animation:vtIn .5s var(--ease) both}
+@keyframes vtOut{to{opacity:0;transform:translateY(-6px)}}
+@keyframes vtIn{from{opacity:0;transform:translateY(8px)}}
+
+.panel{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:20px;min-width:0;transition:border-color .3s var(--ease),transform .4s var(--ease),box-shadow .4s var(--ease);overflow:hidden}
+.panel.spot::before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(420px circle at var(--mx,-999px) var(--my,-999px),var(--glow),transparent 45%);transition:opacity .3s;opacity:0}
+.panel.spot:hover::before{opacity:1}
+.panel.lift:hover{border-color:var(--line2);transform:translateY(-2px);box-shadow:0 12px 30px -18px rgba(0,0,0,.25)}
+.ph{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.ph h3{font-size:15px;font-weight:600}
+.ph small,.muted{color:var(--ink3);font-size:12.5px}
+.label{font:500 11px var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--ink3)}
+.g{display:grid;gap:14px}
+.g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g21{grid-template-columns:minmax(0,1.65fr) minmax(0,1fr)}
+.mb{margin-bottom:14px}
+@media(max-width:1100px){.g4{grid-template-columns:repeat(2,minmax(0,1fr))}.g3{grid-template-columns:repeat(2,minmax(0,1fr))}.g21{grid-template-columns:1fr}}
+@media(max-width:640px){.g4,.g3,.g2{grid-template-columns:1fr}}
+
+.kpi .v{font:400 54px/1 var(--f-display);letter-spacing:-.02em;margin:14px 0 6px}
+.kpi .d{display:flex;align-items:center;justify-content:space-between;gap:10px;color:var(--ink2);font-size:12.5px}
+.kpi.tile{display:block;width:100%;text-align:left;font:inherit;color:inherit;cursor:pointer}
+.kpi.tile .label::after{content:" →";opacity:0;transition:opacity .2s}
+.kpi.tile:hover .label::after,.kpi.tile:focus-visible .label::after{opacity:.7}
+.kpi.tile:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.spark{display:block;overflow:visible}
+.spark path.l{fill:none;stroke:var(--ink);stroke-width:1.5}
+.spark path.a{fill:var(--glow)}
+.draw{stroke-dasharray:var(--len,1000);stroke-dashoffset:var(--len,1000);animation:draw 1.4s var(--ease) .2s forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex:none;background:var(--ink3)}
+.dot.ok{background:var(--ok)}.dot.warn{background:var(--warn)}.dot.bad{background:var(--bad)}.dot.ring{background:transparent;border:1.5px solid var(--ink2)}.dot.ink{background:var(--ink)}
+.tag{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 9px;border-radius:99px;border:1px solid var(--line2);font-size:12px;font-weight:500;color:var(--ink2);white-space:nowrap;background:var(--surface)}
+.tag.solid{background:var(--inv);color:var(--invfg);border-color:transparent}
+
+.acct{display:flex;flex-direction:column;gap:12px}
+.acct .top{display:flex;align-items:center;gap:12px}
+.glyph{width:36px;height:36px;border-radius:10px;border:1px solid var(--line2);display:grid;place-items:center;flex:none;background:var(--raised)}
+.glyph svg{width:17px;height:17px;fill:var(--ink)}
+.acct .nm{font-weight:600;line-height:1.2}.acct .sub{font-size:12px;color:var(--ink3)}
+.acct .row{display:flex;align-items:flex-end;justify-content:space-between;gap:10px}
+.acct .big{font:400 36px/1 var(--f-display)}
+
+.chart{width:100%;height:auto;display:block;overflow:visible}
+.chart .grid{stroke:var(--line);stroke-width:1}
+.chart .ax{font:500 10.5px var(--f-mono);fill:var(--ink3)}
+.bars rect{transform-origin:bottom;transform-box:fill-box;animation:grow .9s var(--ease) both}
+@keyframes grow{from{transform:scaleY(0)}}
+.tip{position:fixed;pointer-events:none;z-index:50;background:var(--inv);color:var(--invfg);font:500 12px var(--f-mono);padding:8px 10px;border-radius:8px;opacity:0;transform:translateY(4px);transition:opacity .15s,transform .2s var(--ease);white-space:nowrap}
+.tip.on{opacity:1;transform:none}
+
+.list{display:grid}
+.li{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:14px;align-items:center;padding:12px 0;border-top:1px solid var(--line)}
+.li:first-child{border-top:0}
+.li .t{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.li .s{font-size:12.5px;color:var(--ink3)}
+.thumbmini{width:40px;height:40px;border-radius:8px;object-fit:cover;background:var(--sunk);border:1px solid var(--line)}
+.empty{padding:40px 20px;text-align:center;color:var(--ink3);border:1px dashed var(--line2);border-radius:var(--r)}
+.skel{background:linear-gradient(90deg,var(--sunk),var(--raised),var(--sunk));background-size:200% 100%;animation:sh 1.4s linear infinite;border-radius:8px}
+@keyframes sh{to{background-position:-200% 0}}
+/* Studio */
+.studio{display:grid;grid-template-columns:280px minmax(0,1fr);gap:14px;align-items:start}
+.studio>*,#editor,.editor>*,.field{min-width:0}
+.qlist{min-width:0}.qlist .seg{overflow-x:auto}
+@media(max-width:1100px){.studio{grid-template-columns:1fr}}
+.qlist{display:grid;gap:8px;position:sticky;top:20px}
+.qtabs{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px}
+.qi{display:grid;grid-template-columns:44px minmax(0,1fr);gap:12px;align-items:center;text-align:left;width:100%;padding:10px;border-radius:12px;border:1px solid var(--line);background:var(--surface);cursor:pointer;transition:border-color .25s,transform .35s var(--ease),background .25s}
+.qi:hover{border-color:var(--line2);transform:translateX(2px)}
+.qi[aria-pressed="true"]{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.qi img{width:44px;height:44px;border-radius:8px;object-fit:cover;background:var(--sunk)}
+.qi b{display:block;font-weight:500;font-size:13px;line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.qi span{font-size:11.5px;color:var(--ink3);display:flex;align-items:center;gap:6px;margin-top:3px}
+.editor{display:grid;grid-template-columns:minmax(0,400px) minmax(0,1fr);gap:14px;align-items:start}
+@media(max-width:1280px){.editor{grid-template-columns:1fr}.stage{position:static}}
+.stage{position:sticky;top:20px;display:grid;gap:12px}
+.frame-wrap{display:grid;place-items:center;height:520px;background:var(--sunk);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;position:relative}
+.frame-wrap::after{content:"";position:absolute;inset:0;background-image:radial-gradient(var(--line2) 1px,transparent 1px);background-size:16px 16px;opacity:.5;pointer-events:none}
+.frame{position:relative;z-index:1;border-radius:12px;overflow:hidden;background:#000;box-shadow:0 24px 50px -20px rgba(0,0,0,.45),0 0 0 1px var(--line2);transition:width .7s var(--ease),height .7s var(--ease)}
+.frame img,.frame video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:opacity .45s var(--ease)}
+.frame .fade{opacity:0}
+.frame .badge{position:absolute;left:10px;top:10px;z-index:2;font:500 10.5px var(--f-mono);letter-spacing:.06em;background:rgba(0,0,0,.6);color:#fff;padding:4px 7px;border-radius:6px;backdrop-filter:blur(6px)}
+@media(max-width:640px){.frame-wrap{height:420px}}
+.seg{position:relative;display:inline-grid;grid-auto-flow:column;grid-auto-columns:1fr;padding:3px;border-radius:11px;background:var(--sunk);border:1px solid var(--line)}
+.seg button{position:relative;z-index:1;border:0;background:transparent;padding:7px 12px;border-radius:8px;font-weight:500;font-size:12.5px;color:var(--ink2);cursor:pointer;transition:color .25s;white-space:nowrap}
+.seg button[aria-pressed="true"]{color:var(--ink)}
+.seg .th{position:absolute;z-index:0;top:3px;bottom:3px;border-radius:8px;background:var(--surface);box-shadow:0 1px 3px rgba(0,0,0,.12),0 0 0 1px var(--line);transition:left .45s var(--ease),width .45s var(--ease)}
+.seg.full{display:grid;width:100%}
+.thumbs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.thumbs button{position:relative;padding:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--sunk);cursor:pointer;aspect-ratio:1;transition:transform .35s var(--ease),border-color .2s}
+.thumbs button:hover{transform:translateY(-2px)}
+.thumbs button[aria-pressed="true"]{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink)}
+.thumbs img{width:100%;height:100%;object-fit:cover;display:block}
+.thumbs span{position:absolute;left:6px;bottom:6px;font:500 10px var(--f-mono);background:rgba(0,0,0,.65);color:#fff;padding:2px 6px;border-radius:5px}
+.sect{display:grid;gap:10px;padding:18px 0;border-top:1px solid var(--line)}
+.sect:first-of-type{border-top:0;padding-top:4px}
+.sect .lh{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.targets{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
+@media(max-width:640px){.targets{grid-template-columns:1fr}}
+.tg{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--raised);cursor:pointer;text-align:left;transition:border-color .25s,background .25s}
+.tg:hover{border-color:var(--line2)}
+.tg[aria-checked="true"]{border-color:var(--ink);background:var(--surface)}
+.tg b{font-weight:500;font-size:13px;display:block;line-height:1.2}.tg small{font-size:11.5px;color:var(--ink3)}
+.sw{width:34px;height:20px;border-radius:99px;background:var(--line2);position:relative;transition:background .3s var(--ease);flex:none}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,.3);transition:transform .35s var(--ease)}
+[aria-checked="true"] .sw{background:var(--ink)}
+[aria-checked="true"] .sw::after{transform:translateX(14px)}
+.fit{display:flex;gap:6px;flex-wrap:wrap}
+.fit .tag.warnt{border-color:var(--warn);color:var(--warn)}
+.field{display:grid;gap:6px}
+.field input,.field textarea{width:100%;border:1px solid var(--line2);background:var(--raised);border-radius:10px;padding:10px 12px;transition:border-color .2s,background .2s;resize:vertical}
+.field input:focus,.field textarea:focus{outline:none;border-color:var(--ink);background:var(--surface)}
+.field textarea{min-height:150px;line-height:1.55}
+.cc{font:500 11px var(--f-mono);color:var(--ink3);text-align:right}.cc.over{color:var(--bad)}
+.ctabs{display:flex;gap:4px;flex-wrap:wrap}
+.ctabs button{border:1px solid var(--line);background:transparent;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:500;color:var(--ink2);cursor:pointer;transition:all .2s}
+.ctabs button[aria-pressed="true"]{background:var(--inv);color:var(--invfg);border-color:transparent}
+.actbar{position:sticky;bottom:12px;z-index:3;display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between;padding:10px;border-radius:14px;border:1px solid var(--line2);background:color-mix(in srgb,var(--surface) 82%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);margin-top:8px}
+.actbar .l{display:flex;align-items:center;gap:8px;color:var(--ink2);font-size:12.5px;min-width:0}
+.actbar .r{display:flex;gap:6px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 14px;border-radius:10px;border:1px solid var(--line2);background:var(--surface);font-weight:500;font-size:13px;cursor:pointer;transition:transform .2s var(--ease),background .2s,border-color .2s,opacity .2s}
+.btn:hover{border-color:var(--ink3)}.btn:active{transform:scale(.97)}
+.btn.pri{background:var(--inv);color:var(--invfg);border-color:transparent}
+.btn.bad{color:var(--bad)}
+.strip{display:flex;gap:6px;overflow-x:auto;margin-top:10px;padding-bottom:2px}.si{position:relative;flex:0 0 64px;height:64px;border-radius:8px;overflow:hidden;border:1px solid var(--line);background:var(--sunk)}.si img,.si video{width:100%;height:100%;object-fit:cover;display:block}.si span{position:absolute;left:5px;top:3px;font:600 11px var(--f-mono);color:#fff;text-shadow:0 1px 3px #000}.si button{position:absolute;right:3px;top:3px;width:18px;height:18px;padding:0;border:0;border-radius:6px;background:rgba(0,0,0,.6);color:#fff;font-size:12px;line-height:18px;cursor:pointer}
+.cut{margin-top:12px;padding-top:12px;border-top:1px solid var(--line);display:grid;gap:10px;font-size:13px}
+.cut .bar{height:6px;border-radius:3px;background:var(--sunk);overflow:hidden}.cut .bar i{display:block;height:100%;background:var(--ink);transition:width .3s}
+.btn.pri:hover{opacity:.9}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.hist{display:grid;gap:0;margin:0;padding:0;list-style:none}
+.hist li{display:grid;grid-template-columns:14px minmax(0,1fr);gap:10px;padding:6px 0;font-size:12.5px;color:var(--ink2);position:relative}
+.hist li::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--ink3);margin-top:6px}
+.hist li:not(:last-child)::after{content:"";position:absolute;left:3px;top:18px;bottom:-6px;width:1px;background:var(--line2)}
+.hist b{color:var(--ink);font-weight:500}
+.toast{position:fixed;right:max(20px,env(safe-area-inset-right,0px));bottom:max(20px,env(safe-area-inset-bottom,0px));z-index:60;display:grid;gap:8px}
+.toast div{background:var(--inv);color:var(--invfg);padding:11px 14px;border-radius:12px;font-size:13px;box-shadow:0 16px 40px -16px rgba(0,0,0,.5);animation:tin .5s var(--ease) both;max-width:340px}
+.toast div.out{animation:tout .4s var(--ease) forwards}
+@keyframes tin{from{opacity:0;transform:translateY(12px) scale(.96)}}
+@keyframes tout{to{opacity:0;transform:translateY(8px)}}
+/* calendar */
+.cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}
+.cal-wrap{overflow-x:auto}.cal-in{min-width:760px}
+.cd{min-height:148px;border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:10px;display:flex;flex-direction:column;gap:6px}
+.cd.today{border-color:var(--ink)}
+.cd .dh{display:flex;justify-content:space-between;font-size:12px;color:var(--ink3)}
+.cd .dh b{font:400 22px/1 var(--f-display);color:var(--ink)}
+.ev{display:grid;gap:2px;padding:7px 8px;border-radius:8px;background:var(--raised);border:1px solid var(--line);font-size:11.5px;line-height:1.3}
+.ev.mine{background:var(--inv);color:var(--invfg);border-color:transparent}
+.ev .et{font:500 10.5px var(--f-mono);opacity:.7}
+/* pipeline */
+.pipe{width:100%;height:auto;display:block}
+.pipe .nd rect{fill:var(--surface);stroke:var(--line2)}
+.pipe .nd.inv rect{fill:var(--inv);stroke:none}
+.pipe .nd text{font:500 13px var(--f-body);fill:var(--ink)}
+.pipe .nd.inv text{fill:var(--invfg)}
+.pipe .nd text.s{font:400 11px var(--f-mono);fill:var(--ink3)}
+.pipe .nd.inv text.s{fill:var(--invfg);opacity:.6}
+.pipe .ed{fill:none;stroke:var(--line2);stroke-width:1.5}
+.pipe .fl{fill:none;stroke:var(--ink);stroke-width:2;stroke-dasharray:2 14;stroke-linecap:round;animation:flow 1.6s linear infinite}
+@keyframes flow{to{stroke-dashoffset:-32}}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font:500 10.5px var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);padding:0 10px 10px 0;white-space:nowrap}
+td{padding:11px 10px 11px 0;border-top:1px solid var(--line);vertical-align:middle}
+td.n,th.n{text-align:right;font-family:var(--f-mono)}
+.tbl{overflow-x:auto}
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+/* guidance: next-step card, first-visit steps, numbered editor sections, status help, More menu */
+.cta{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;padding:26px 28px}
+.cta h2{font:400 clamp(28px,3.2vw,40px)/1.05 var(--f-display);letter-spacing:-.02em;margin:10px 0 6px}
+.cta p{margin:0;color:var(--ink2);max-width:64ch}
+.cta .label{display:inline-flex;align-items:center;gap:8px}
+.cta-b{display:flex;gap:8px;flex-wrap:wrap}
+.cta-b .btn{height:44px;padding:0 20px;font-size:14px}
+.steps{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.steps li{display:flex;gap:12px;align-items:flex-start;padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--raised)}
+.steps b{display:block;font-weight:600;margin-bottom:2px}.steps li span:not(.stepn){font-size:13px;color:var(--ink2)}
+.stepn{width:26px;height:26px;border-radius:50%;background:var(--inv);color:var(--invfg);display:grid;place-items:center;font:600 12px var(--f-mono);flex:none}
+.sect-h{margin:6px 0 12px}
+.nav a.nav-help{margin-top:14px}
+.label .n{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--inv);color:var(--invfg);font-size:10px;margin-right:6px;letter-spacing:0}
+.hint{font-size:12.5px;color:var(--ink3);margin:0}
+.stnote{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:12px;background:var(--raised);border:1px solid var(--line);margin-top:12px;font-size:13px;color:var(--ink2)}
+.stnote .dot{margin-top:6px}
+.drop{position:absolute;inset:0;z-index:2;display:grid;place-items:center;align-content:center;gap:8px;padding:20px;text-align:center;color:#eee;cursor:pointer;transition:background .2s}
+.drop:hover,.frame.over .drop{background:rgba(255,255,255,.07)}
+.drop b{font-weight:600;font-size:14px}.drop span{font-size:12px;color:#aaa;line-height:1.5}
+.more{position:relative}
+.menu{position:absolute;left:0;bottom:calc(100% + 8px);z-index:20;width:min(300px,calc(100vw - 32px));padding:6px;border-radius:14px;border:1px solid var(--line2);background:var(--surface);box-shadow:0 24px 50px -20px rgba(0,0,0,.5);display:grid;gap:2px;animation:rise .25s var(--ease) both}
+.menu[hidden]{display:none}
+.menu button{display:grid;gap:2px;text-align:left;padding:10px 12px;border:0;border-radius:10px;background:transparent;cursor:pointer}
+.menu button:hover{background:var(--raised)}
+.menu button b{font-weight:500;font-size:13px}.menu button span{font-size:12px;color:var(--ink3)}
+.menu button.danger b{color:var(--bad)}
+.actbar .pri small{display:block;font-size:10.5px;font-weight:400;opacity:.7;line-height:1}
+.actbar .btn.pri{height:auto;min-height:36px;padding:6px 16px;flex-direction:column;align-items:flex-start;gap:2px}
+@media(max-width:900px){.steps{grid-template-columns:1fr}}
+@media(max-width:900px){
+ .app{grid-template-columns:minmax(0,1fr)}
+ .rail,.nav{min-width:0}
+ .nav a.nav-help{margin-top:0}
+ .rail{position:sticky;top:env(safe-area-inset-top,0px);height:auto;flex-direction:row;flex-wrap:wrap;align-items:center;gap:10px;padding-block:10px;padding-right:max(16px,env(safe-area-inset-right,0px));border-right:0;border-bottom:1px solid var(--line)}
+ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+ .nav{grid-auto-flow:column;overflow-x:auto;order:3;flex:1 1 100%}
+ .nav a{white-space:nowrap}.nav-ind{display:none}.nav a[aria-current="page"]{background:var(--surface);box-shadow:0 0 0 1px var(--line)}
+ .rail-foot{margin:0 0 0 auto;grid-auto-flow:column;align-items:center}
+ .rail-foot .live span{display:none}
+ .stage,.qlist{position:static}
+}
+@keyframes barx{from{transform:scaleX(0)}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+<div class="app">
+ <aside class="rail">
+  <div class="brand"><div class="mark" data-team-mark>sc</div><div><b data-team>Social Command</b><small data-team-sub>Posting dashboard</small></div></div>
+  <nav class="nav" id="nav" aria-label="Views"><i class="nav-ind" id="navind" aria-hidden="true"></i></nav>
+  <div class="rail-foot">
+   <div class="live"><i class="pulse off" id="pulse"></i><span id="livetxt">Connecting…</span></div>
+   <button class="ghost" type="button" onclick="flSignOut()">Sign out</button>
+   <button class="ghost" id="theme" type="button"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg><span id="themetxt">Dark</span></button>
+  </div>
+ </aside>
+ <main class="main"><div class="wrap">
+  <div class="bar"><span class="crumbs" id="crumbs">Social Command / Overview</span>
+   <div class="bar-r"><span class="chipline"><i class="dot ok" id="syncdot"></i><span id="synctxt">Waiting for sync</span></span>
+   <button class="ghost" id="refresh" type="button" data-tip="Pull the latest views and likes from every account (about a minute)"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.6-6.4M21 4v5h-5"/></svg>Refresh numbers</button>
+   <button class="ghost" type="button" data-go="system" data-tip="The 3 steps, and what each label means" aria-label="How it works"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.2a2.6 2.6 0 0 1 5 .9c0 1.7-2.5 2.2-2.5 3.9M12 17.2v.1"/></svg>Help</button></div></div>
+  <div id="view"></div>
+ </div></main>
+</div>
+<div class="tip" id="tip"></div><div class="toast" id="toast" aria-live="polite"></div>
+<script src="/vendor/supabase-2.45.4.js"></script>
+<script src="/shim.js"></script>
+<script>
+(function(){
+const $=(s,r)=>(r||document).querySelector(s), $$=(s,r)=>[...(r||document).querySelectorAll(s)];
+const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const IST={timeZone:'Asia/Kolkata'};
+const fdt=s=>s?new Date(s).toLocaleString('en-IN',{...IST,weekday:'short',day:'numeric',month:'short',hour:'numeric',minute:'2-digit'}):'—';
+const fd=s=>s?new Date(s).toLocaleDateString('en-IN',{...IST,day:'numeric',month:'short'}):'—';
+const ftime=s=>new Date(s).toLocaleTimeString('en-IN',{...IST,hour:'numeric',minute:'2-digit'});
+const ago=s=>{if(!s)return'never';const m=Math.round((Date.now()-new Date(s))/6e4);return m<1?'just now':m<60?m+' min ago':m<1440?Math.round(m/60)+' h ago':Math.round(m/1440)+' d ago'};
+const istKey=d=>new Date(d).toLocaleDateString('en-CA',IST);
+const toLocalInput=s=>s?new Date(new Date(s).getTime()+330*6e4).toISOString().slice(0,16):'';
+const fromLocalInput=v=>v?new Date(new Date(v+':00Z').getTime()-330*6e4).toISOString():null;
+const fmt=n=>n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e4?Math.round(n/1e3)+'K':n>=1e3?(n/1e3).toFixed(1)+'K':String(Math.round(n));
+
+const PL={youtube:{n:'YouTube',g:'YT'},facebook:{n:'Facebook',g:'FB'},instagram:{n:'Instagram',g:'IG'},linkedin:{n:'LinkedIn',g:'in'},x:{n:'X',g:'X'}};
+const PORDER=['youtube','instagram','facebook','linkedin','x'];
+const SHADE={youtube:1,instagram:.72,facebook:.5,linkedin:.32,x:.18};
+const RATIOS=[['9x16','9:16',9/16,'Vertical'],['4x5','4:5',4/5,'Portrait'],['1x1','1:1',1,'Square'],['16x9','16:9',16/9,'Landscape']];
+const BEST={youtube:['9x16','16x9'],instagram:['9x16','4x5','1x1'],facebook:['9x16','4x5','1x1','16x9'],linkedin:['1x1','4x5','16x9','9x16'],x:['16x9','1x1','4x5','9x16']};
+const FITNOTE={youtube:{'4x5':'YouTube posts this as a regular video, not a Short','1x1':'YouTube posts this as a regular video, not a Short'},instagram:{'16x9':'Instagram crops landscape Reels hard. Use 9:16 or 4:5'}};
+const ST={awaiting:['Needs your OK','warn'],drafting:['Claude is finishing','ring'],approved:['Approved','ring'],changes:['Back with Claude','bad'],rejected:['Discarded','ink'],scheduled:['Scheduled','ink'],published:['Live','ok'],failed:['Didn’t go out','bad']};
+// What each status means and what to do, shown on the post and under Help.
+const STHELP={awaiting:'Check it, then press Approve. Nothing posts until someone does.',drafting:'Claude is finishing the cover or captions. After Approve it comes back here for your OK; after Publish now it goes live by itself.',approved:'Approved. It is being handed to Post for Me. If YouTube’s daily upload limit was hit, it tries again by itself after the limit resets, only where it failed.',changes:'Sent back to Claude with your note. It returns here for your OK.',rejected:'Discarded. It will not be posted.',scheduled:'Booked in Post for Me. It goes out at the time shown, by itself.',published:'Live on the accounts. See how it does under Results.',failed:'It did not go out. Read the reason below, fix it, then approve again: it is sent only to the accounts where it failed.'};
+const glyph=p=>'<span class="glyph" aria-hidden="true"><b class="mono" style="font-size:12px;font-weight:500">'+(PL[p]?PL[p].g:'?')+'</b></span>';
+
+// The team's name (TEAM_NAME on the server, via /api/config) in the sidebar, the page title and the connector's name.
+const teamName=()=>window.flTeam||'Social Command',appName=()=>window.flTeam?window.flTeam+' Social Command':'Social Command';
+const S={accounts:{},queue:[],sync:null,hb:null,needs:[],runs:[],snaps:[],req:null,me:null,canWrite:true,names:{},live:false,loaded:{}};
+let db=null,user=null,view='overview',sel=null,draft=null,qfilter='open',perfAcc='all',capTab='default',cut=null,cutStyle='blur';
+
+const VIEWS={
+ overview:['Home','<em>Today</em> at a glance','What needs you, what goes out next, and how each account is doing.'],
+ studio:['Posts','Your <em>posts</em>','Pick a post on the left to check it, or add a new one. Nothing goes out until someone presses Approve or Publish now.'],
+ calendar:['Calendar','The next <em>two weeks</em>','Filled cards are posts from this app. Outlined cards already went live on your accounts.'],
+ performance:['Results','How posts are <em>doing</em>','Views, likes and comments from every account, refreshed every hour.'],
+ channels:['Accounts','Your <em>accounts</em>','Every social account connected through Post for Me, and what each one reports.'],
+ system:['How it works','How it <em>works</em>','Three steps from idea to live post, what each label means, and a log of everything the system did.']};
+// One-line help shown when hovering a menu item.
+const NAVHINT={overview:'What needs you right now',studio:'Add, check and approve posts',calendar:'What goes out when',performance:'Views, likes and comments',insights:'What is working, and ideas for next posts',channels:'Connected social accounts',system:'The 3 steps, and what each label means'};
+const ICON={overview:'<path d="M3 13h8V3H3zM13 21h8V11h-8zM3 21h8v-6H3zM13 3v6h8V3z"/>',studio:'<path d="M4 20h4L19 9l-4-4L4 16zM14 6l4 4"/>',calendar:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',performance:'<path d="M3 20h18M6 16l4-5 3 3 5-7"/>',channels:'<circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.3 11l7.4-3.8M8.3 13l7.4 3.8"/>',system:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1L7 17M17 7l2.1-2.1"/>'};
+
+function toast(t){const d=document.createElement('div');d.textContent=t;$('#toast').appendChild(d);setTimeout(()=>{d.classList.add('out');setTimeout(()=>d.remove(),400)},3600)}
+function counts(){const c={awaiting:0,approved:0,changes:0,rejected:0,scheduled:0,published:0,failed:0};S.queue.forEach(q=>c[q.status]=(c[q.status]||0)+1);return c}
+function accList(){const ids=Object.keys(S.accounts);return ids.map(id=>({id,...S.accounts[id]})).sort((a,b)=>PORDER.indexOf(a.platform)-PORDER.indexOf(b.platform)||(a.kind==='personal')-(b.kind==='personal'))}
+function accName(a){return a?(PL[a.platform]?PL[a.platform].n:a.platform)+(a.platform==='linkedin'?(a.kind==='personal'?' · '+a.username:' · Page'):''):'Account'}
+const MLAB={views:'Views',impressions:'Impressions',likes:'Likes',comments:'Comments',shares:'Shares',clicks:'Clicks',engagement:'Engagement',estimatedMinutesWatched:'Watch time',subscribersGained:'Subscribers',reach:'Reach'};
+const MCORE=['views','impressions','likes','comments','shares','clicks'];
+function mchips(keys){keys=(keys||[]).filter(k=>MLAB[k]);const have=MCORE.filter(k=>keys.includes(k)).length;return '<div style="display:grid;gap:8px"><div style="display:flex;align-items:center;gap:10px"><div style="flex:1;height:4px;border-radius:99px;background:var(--sunk);overflow:hidden"><i style="display:block;height:100%;width:'+(have/MCORE.length*100)+'%;background:var(--ink)"></i></div><span class="mono muted" style="font-size:11px">'+have+'/'+MCORE.length+'</span></div><div style="display:flex;flex-wrap:wrap;gap:4px">'+MCORE.map(k=>'<span class="tag" style="height:22px;font-size:11px;'+(keys.includes(k)?'':'opacity:.38;border-style:dashed')+'">'+MLAB[k]+'</span>').join('')+'</div></div>'}
+function syncAcc(id){return S.sync&&S.sync.accounts?S.sync.accounts[id]:null}
+
+/* charts */
+function spark(vals,w,h){w=w||120;h=h||34;if(!vals||!vals.length)return'';const mx=Math.max(1,...vals);const x=i=>i*(w/(vals.length-1||1)),y=v=>h-3-(v/mx)*(h-8);
+ const d=vals.map((v,i)=>(i?'L':'M')+x(i).toFixed(1)+' '+y(v).toFixed(1)).join('');const l=vals.length-1;
+ return '<svg class="spark" width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'" aria-hidden="true"><path class="a" d="'+d+'L'+w+' '+h+'L0 '+h+'Z"/><path class="l draw" pathLength="1" style="--len:1" d="'+d+'"/><circle cx="'+x(l)+'" cy="'+y(vals[l])+'" r="2.6" fill="var(--ink)"/></svg>'}
+function stacked(weeks,series){const W=760,H=240,L=30,B=26,T=10;const n=weeks.length;const tot=weeks.map((_,i)=>series.reduce((s,x)=>s+(x.v[i]||0),0));const mx=Math.max(1,...tot);let step=Math.pow(10,Math.floor(Math.log10(mx)));if(mx/step<4)step/=2;const top=Math.ceil(mx/step)*step;
+ const bw=(W-L)/n;let g='';for(let t=0;t<=top;t+=step){const y=T+(1-t/top)*(H-T-B);g+='<line class="grid" x1="'+L+'" x2="'+W+'" y1="'+y+'" y2="'+y+'"/><text class="ax" x="'+(L-8)+'" y="'+(y+3)+'" text-anchor="end">'+t+'</text>'}
+ let bars='';weeks.forEach((w,i)=>{let acc=0;series.forEach(s=>{const v=s.v[i]||0;if(!v)return;const y0=T+(1-acc/top)*(H-T-B),y1=T+(1-(acc+v)/top)*(H-T-B);acc+=v;bars+='<rect x="'+(L+i*bw+bw*.18)+'" y="'+y1+'" width="'+(bw*.64)+'" height="'+Math.max(1,y0-y1-1)+'" rx="3" fill="var(--ink)" fill-opacity="'+s.o+'" style="animation-delay:'+(i*40)+'ms" data-tip="'+esc(s.n+' · week of '+w+' · '+v+' posts')+'"/>'});
+  if(i%2===0)g+='<text class="ax" x="'+(L+i*bw+bw/2)+'" y="'+(H-6)+'" text-anchor="middle">'+esc(w)+'</text>'});
+ return '<svg class="chart" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Posts per week by platform">'+g+'<g class="bars">'+bars+'</g></svg>'}
+function lineChart(pts,label){if(pts.length<2)return '<div class="empty">Trend lines fill in as daily snapshots arrive. First snapshot '+(pts[0]?fd(pts[0].d):'pending')+'.</div>';const W=760,H=200,L=36,B=24,T=10;const mx=Math.max(1,...pts.map(p=>p.v))*1.15;const x=i=>L+i*(W-L-10)/(pts.length-1),y=v=>T+(1-v/mx)*(H-T-B);
+ const d=pts.map((p,i)=>(i?'L':'M')+x(i)+' '+y(p.v)).join('');return '<svg class="chart" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'+esc(label)+'"><line class="grid" x1="'+L+'" x2="'+W+'" y1="'+y(0)+'" y2="'+y(0)+'"/><path d="'+d+'L'+x(pts.length-1)+' '+y(0)+'L'+L+' '+y(0)+'Z" fill="var(--glow)"/><path class="draw" pathLength="1" d="'+d+'" fill="none" stroke="var(--ink)" stroke-width="1.8"/>'+pts.map((p,i)=>'<circle cx="'+x(i)+'" cy="'+y(p.v)+'" r="3" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.5" data-tip="'+esc(fd(p.d)+' · '+p.v)+'"/>'+(i%Math.ceil(pts.length/6)===0?'<text class="ax" x="'+x(i)+'" y="'+(H-4)+'" text-anchor="middle">'+fd(p.d)+'</text>':'')).join('')+'</svg>'}
+function platformWeekly(){const w=S.sync?S.sync.weeks:[];const by={};accList().forEach(a=>{const s=syncAcc(a.id);if(!s)return;by[a.platform]=by[a.platform]||Array(w.length).fill(0);s.weekly.forEach((v,i)=>by[a.platform][i]+=v)});return {w,by}}
+function vOverview(){const c=counts();const {w,by}=platformWeekly();const tot=w.map((_,i)=>Object.values(by).reduce((s,a)=>s+a[i],0));
+ const p30=accList().reduce((s,a)=>s+((syncAcc(a.id)||{}).posts_30d||0),0);
+ const next=S.queue.filter(q=>q.status==='awaiting'||planned(q)).sort((a,b)=>(a.slot_at||'').localeCompare(b.slot_at||'')).slice(0,5);
+ // Each tile opens the list behind its number.
+ const k=(i,l,v,sub,extra,to,tip)=>'<button type="button" class="panel spot lift kpi tile rise" style="--i:'+i+'" '+to+' data-tip="'+tip+'"><span class="label">'+l+'</span><div class="v num" data-count="'+v+'">0</div><div class="d"><span>'+sub+'</span>'+(extra||'')+'</div></button>';
+ const att=[];if(c.changes)att.push(['bad',c.changes+' sent back to Claude','Claude revises these and sends them back for your OK.','studio']);
+ (S.needs||[]).slice(0,4).forEach(n=>att.push(['ring',n.t,n.d,'system']));
+ const pl=n=>n+' post'+(n===1?'':'s');
+ const soon=S.queue.filter(q=>planned(q)&&q.slot_at).sort((a,b)=>a.slot_at.localeCompare(b.slot_at))[0];
+ // The one thing to do next, in plain words.
+ const cta=c.awaiting?['warn',pl(c.awaiting)+' '+(c.awaiting===1?'needs':'need')+' your OK','Check each one, then press Approve. It goes out at its scheduled time.','<button class="btn pri" data-act="review">Review now</button>']
+  :c.failed?['bad',pl(c.failed)+' didn’t go out','Open '+(c.failed===1?'it':'them')+' to see why, fix it, then approve again.','<button class="btn pri" data-act="failed">See why</button>']
+  :['ok','You’re all caught up','Nothing is waiting for you. Add a post, or let Claude suggest one.','<button class="btn pri" data-act="newpost">Add a post</button><button class="btn" data-go="insights">Get ideas</button>'];
+ let introDone=false;try{introDone=localStorage.getItem('fl-sc-intro')==='done'}catch(e){}
+ const steps=[['Add a post','Upload a video or image, or let Claude draft one from Ideas.'],['Check it, then press Approve','Pick the accounts, caption and time. Nothing posts without an OK.'],['It posts by itself','At the time you chose. Then watch the views and likes under Results.']];
+ return (introDone?'':'<div class="panel rise mb intro"><div class="ph"><h3>New here? It takes three steps</h3><button class="ghost" data-act="intro-done" data-tip="Hide this guide. It stays under Help.">Got it</button></div><ol class="steps">'+steps.map((s,i)=>'<li><span class="stepn">'+(i+1)+'</span><div><b>'+s[0]+'</b><span>'+s[1]+'</span></div></li>').join('')+'</ol></div>')
+ +'<div class="panel rise mb cta"><div><span class="label"><i class="dot '+cta[0]+'"></i> Next step</span><h2>'+cta[1]+'</h2><p>'+cta[2]+(soon?' <span class="muted">Next out: '+esc(soon.title||'Untitled')+' · '+fdt(soon.slot_at)+'</span>':'')+'</p></div><div class="cta-b">'+cta[3]+'</div></div>'
+ +'<div class="g g4 mb">'+k(0,'Needs your OK',c.awaiting,c.awaiting?'Waiting in Posts':'Nothing waiting','','data-act="review"','Open the posts waiting for your OK')+k(1,'Scheduled',S.queue.filter(planned).length,'Approved, going out soon','','data-act="list" data-list="scheduled"','Open the posts booked to go out')+k(2,'Posted from here',c.published,'Since this app started','','data-act="list" data-list="published"','Open the posts that are live')+k(3,'Posts · last 30 days',p30,'All accounts together',spark(tot.slice(-8),90,28),'data-go="performance"','Open Results for every account')+'</div>'
+ +'<div class="ph sect-h"><h3>Your accounts</h3><small>Posts in the last 30 days. A red dot means the account needs reconnecting in Post for Me.</small></div>'
+ +'<div class="g g3 mb">'+accList().map((a,i)=>{const s=syncAcc(a.id)||{};return '<div class="panel spot lift acct rise" style="--i:'+(i+4)+'"><div class="top">'+glyph(a.platform)+'<div style="min-width:0"><div class="nm">'+esc(accName(a))+'</div><div class="sub">'+esc(a.username)+(a.kind==='personal'?' · personal':'')+'</div></div><span style="margin-left:auto" title="'+(a.status==='connected'?'Connected':'Not connected')+'"><i class="dot '+(a.status==='connected'?'ok':'bad')+'"></i></span></div><div class="row"><div><div class="big num" data-count="'+(s.posts_30d||0)+'">0</div><div class="muted">posts · 30 days · last '+ago(s.last_post)+'</div></div>'+spark((s.weekly||[]).slice(-8),96,30)+'</div></div>'}).join('')+'</div>'
+ +'<div class="g g21 mb"><div class="panel rise" style="--i:10"><div class="ph"><h3>Posting rhythm</h3><small>Posts per week, all accounts · '+PORDER.filter(p=>by[p]).map(p=>'<span style="display:inline-flex;align-items:center;gap:5px;margin-left:10px"><i class="dot" style="background:var(--ink);opacity:'+SHADE[p]+'"></i>'+PL[p].n+'</span>').join('')+'</small></div>'+(w.length?stacked(w,PORDER.filter(p=>by[p]).map(p=>({n:PL[p].n,o:SHADE[p],v:by[p]}))):'<div class="skel" style="height:220px"></div>')+'</div>'
+ +'<div class="panel rise" style="--i:11"><div class="ph"><h3>Up next</h3><a href="#studio" data-go="studio" class="muted">See all posts</a></div><div class="list">'+(next.length?next.map(q=>'<div class="li"><img class="thumbmini" src="'+esc(q.poster_url||'')+'" alt=""><div style="min-width:0"><div class="t">'+esc(q.title)+'</div><div class="s">'+fdt(q.slot_at)+' · '+(q.targets||q.account_ids||[]).length+' accounts</div></div><span class="tag"><i class="dot '+ST[q.status][1]+'"></i>'+ST[q.status][0]+'</span></div>').join(''):'<div class="empty">Nothing scheduled yet.<br><button class="btn" data-act="newpost" style="margin-top:12px">Add a post</button></div>')+'</div></div></div>'
+ +(att.length?'<div class="panel rise" style="--i:12"><div class="ph"><h3>Worth a look</h3></div><div class="list">'+att.map(x=>'<div class="li"><i class="dot '+x[0]+'"></i><div style="min-width:0"><div class="t" style="white-space:normal">'+esc(x[1])+'</div><div class="s">'+esc(x[2])+'</div></div><button class="ghost" data-go="'+x[3]+'">Open</button></div>').join('')+'</div></div>':'')}
+function vCalendar(){const now=new Date();const istNow=new Date(now.getTime()+330*6e4);const dow=(istNow.getUTCDay()+6)%7;const start=new Date(Date.UTC(istNow.getUTCFullYear(),istNow.getUTCMonth(),istNow.getUTCDate()-dow));
+ const days=[...Array(14)].map((_,i)=>{const d=new Date(start.getTime()+i*864e5);return d.toISOString().slice(0,10)});const ev={};days.forEach(d=>ev[d]=[]);
+ S.queue.filter(q=>q.slot_at&&q.status!=='rejected').forEach(q=>{const k=istKey(q.slot_at);if(ev[k])ev[k].push({t:q.title,at:q.slot_at,mine:1,s:q.status,p:(q.platforms||[])})});
+ accList().forEach(a=>{const s=syncAcc(a.id);(s&&s.recent||[]).forEach(r=>{const k=istKey(r.at);if(ev[k])ev[k].push({t:r.title,at:r.at,p:[a.platform],url:r.url})})});
+ const today=istKey(now);
+ return '<div class="panel rise"><div class="ph"><h3>'+fd(days[0])+' – '+fd(days[13])+'</h3><small><span class="tag solid" style="height:20px">From this app</span> <span class="tag" style="height:20px">Already live</span></small></div><div class="cal-wrap"><div class="cal-in"><div class="cal">'+['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>'<div class="label" style="padding:0 4px 4px">'+d+'</div>').join('')
+ +days.map((d,i)=>'<div class="cd rise'+(d===today?' today':'')+'" style="--i:'+i+'"><div class="dh"><b>'+Number(d.slice(8))+'</b><span>'+new Date(d+'T00:00:00Z').toLocaleDateString('en-IN',{month:'short',timeZone:'UTC'})+'</span></div>'+ev[d].sort((a,b)=>a.at.localeCompare(b.at)).slice(0,4).map(e=>'<div class="ev'+(e.mine?' mine':'')+'"><span class="et">'+ftime(e.at)+' · '+e.p.map(p=>PL[p]?PL[p].g:p).join(' ')+'</span>'+(e.url?'<a href="'+esc(e.url)+'" target="_blank" rel="noopener">'+esc(e.t.slice(0,60))+'</a>':esc(e.t.slice(0,60)))+'</div>').join('')+(ev[d].length>4?'<span class="muted">+'+(ev[d].length-4)+' more</span>':'')+'</div>').join('')+'</div></div></div></div>'}
+function vPerformance(){const accs=accList();const pick=perfAcc==='all'?null:S.accounts[perfAcc];const list=pick?[{id:perfAcc,...pick}]:accs;
+ const sum={};let posts=0;list.forEach(a=>{const s=syncAcc(a.id)||{};posts+=s.posts_30d||0;Object.entries(s.metrics_30d||{}).forEach(([k,v])=>sum[k]=(sum[k]||0)+v)});
+ const NAMES={views:'Views',likes:'Likes',comments:'Comments',shares:'Shares',impressions:'Impressions',reach:'Reach',estimatedMinutesWatched:'Watch minutes',subscribersGained:'Subscribers gained',retweets:'Reposts',replies:'Replies',reactions:'Reactions',clicks:'Clicks'};
+ const tiles=[['Posts · 30 days',posts]].concat(Object.keys(NAMES).filter(k=>k in sum).map(k=>[NAMES[k]+' · 30 days',sum[k]])).slice(0,8);
+ const snaps=S.snaps.slice().sort((a,b)=>a.d.localeCompare(b.d)).map(s=>({d:s.d,v:list.reduce((t,a)=>t+(((s.accounts||{})[a.id]||{}).posts_30d||0),0)}));
+ const rows=list.flatMap(a=>(((syncAcc(a.id)||{}).recent)||[]).map(r=>({...r,a}))).sort((x,y)=>y.at.localeCompare(x.at)).slice(0,20);
+ const missing=list.filter(a=>{const s=syncAcc(a.id);return s&&s.total_posts&&!(s.metrics_available||[]).length});
+ return '<div class="filters" role="group" aria-label="Account"><div class="seg" data-seg="perf">'+[['all','All accounts']].concat(accs.map(a=>[a.id,accName(a)])).map(([v,l])=>'<button type="button" data-perf="'+v+'" aria-pressed="'+(perfAcc===v)+'">'+esc(l)+'</button>').join('')+'<i class="th"></i></div></div>'
+ +'<div class="g g4 mb">'+tiles.map((t,i)=>'<div class="panel spot lift kpi rise" style="--i:'+i+'"><span class="label">'+t[0]+'</span><div class="v num" data-count="'+t[1]+'">0</div></div>').join('')+'</div>'
+ +(missing.length?'<div class="panel rise mb" style="--i:4"><div class="li" style="border:0;padding:0"><i class="dot warn"></i><div><div class="t" style="white-space:normal">'+esc(missing.map(accName).join(', '))+' '+(missing.length>1?'are':'is')+' not sharing metrics yet</div><div class="s">Post for Me returns their posts but no numbers. Reconnect them in Post for Me and allow insights.</div></div></div></div>':'')
+ +'<div class="g g2 mb"><div class="panel rise" style="--i:5"><div class="ph"><h3>Posts per week</h3><small>Last 12 weeks</small></div>'+(S.sync?stacked(S.sync.weeks,list.map(a=>({n:accName(a),o:SHADE[a.platform]||.5,v:(syncAcc(a.id)||{}).weekly||[]}))):'<div class="skel" style="height:200px"></div>')+'</div>'
+ +'<div class="panel rise" style="--i:6"><div class="ph"><h3>30-day posts, daily snapshot</h3><small>'+S.snaps.length+' snapshot'+(S.snaps.length===1?'':'s')+'</small></div>'+lineChart(snaps,'Daily snapshot trend')+'</div></div>'
+ +'<div class="panel rise" style="--i:7"><div class="ph"><h3>Latest posts</h3><small>Synced '+ago(S.sync&&S.sync.synced_at)+'</small></div><div class="tbl"><table><thead><tr><th>Date</th><th>Account</th><th>Post</th><th class="n">Views</th><th class="n">Likes</th><th class="n">Comments</th><th class="n">Shares</th></tr></thead><tbody>'+(rows.length?rows.map(r=>'<tr><td class="mono">'+fd(r.at)+'</td><td>'+esc(accName(r.a))+'</td><td>'+(r.url?'<a href="'+esc(r.url)+'" target="_blank" rel="noopener">'+esc(r.title)+'</a>':esc(r.title))+'</td>'+['views','likes','comments','shares'].map(k=>'<td class="n">'+(r.m&&k in r.m?fmt(r.m[k]):'<span class="muted">—</span>')+'</td>').join('')+'</tr>').join(''):'<tr><td colspan="7" class="muted">No posts on record for this selection. YouTube is shown as totals only because it is a personal channel.</td></tr>')+'</tbody></table></div></div>'}
+function vChannels(){return '<div class="g g3">'+accList().map((a,i)=>{const s=syncAcc(a.id)||{};return '<div class="panel spot lift rise" style="--i:'+i+'"><div class="acct"><div class="top">'+glyph(a.platform)+'<div><div class="nm">'+esc(accName(a))+'</div><div class="sub">'+esc(a.username)+'</div></div><span class="tag" style="margin-left:auto"><i class="dot '+(a.status==='connected'?'ok':'bad')+'"></i>'+(a.status==='connected'?'Connected':'Disconnected')+'</span></div></div>'
+ +'<div class="list" style="margin-top:10px">'+[['Type',a.kind==='personal'?'Personal profile':a.kind==='page'?'Company page':(a.platform==='youtube'?'Personal channel':'Business account')],['Posts on record',s.total_posts==null?'—':s.total_posts],['Last post',ago(s.last_post)],['Best formats',(BEST[a.platform]||[]).map(r=>r.replace('x',':')).join('  ·  ')]].map(r=>'<div class="li" style="grid-template-columns:120px minmax(0,1fr)"><span class="muted">'+r[0]+'</span><span>'+esc(r[1])+'</span></div>').join('')+'<div class="li" style="grid-template-columns:1fr;gap:8px"><span class="muted">Metrics shared</span>'+mchips(s.metrics_available)+'</div></div>'
+ +(a.gap?'<p class="muted" style="margin:10px 0 0">'+esc(a.gap)+'</p>':'')+'</div>'}).join('')+'</div>'}
+function vSystem(){const N=[['Claude','drafts + covers',0,1],['You','approve here',1,0],['Server','schedules at once',2,1],['Post for Me','publishes',3,0],['Server','syncs hourly',4,1]];const W=900,H=150,w=150,gap=(W-5*w)/4;
+ let svg='<svg class="pipe" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Claude drafts, you approve, the server schedules, Post for Me publishes, the server syncs results back">';
+ N.forEach((n,i)=>{const x=i*(w+gap);if(i<4){const x1=x+w,x2=x+w+gap;svg+='<path class="ed" d="M'+x1+' 60H'+x2+'"/><path class="fl" d="M'+x1+' 60H'+x2+'" style="animation-delay:'+(i*.3)+'s"/>'}
+  svg+='<g class="nd'+(n[3]?' inv':'')+'"><rect x="'+x+'" y="30" width="'+w+'" height="60" rx="12"/><text x="'+(x+16)+'" y="56">'+n[0]+'</text><text class="s" x="'+(x+16)+'" y="74">'+n[1]+'</text></g>'});
+ svg+='<path class="ed" d="M'+(4*(w+gap)+w/2)+' 90V122H'+(w/2)+'V90"/><path class="fl" d="M'+(4*(w+gap)+w/2)+' 90V122H'+(w/2)+'V90"/><text class="ax" x="'+(W/2)+'" y="140" text-anchor="middle" style="font:500 11px var(--f-mono);fill:var(--ink3)">results shape the next batch</text></svg>';
+ const runs=S.runs.slice().sort((a,b)=>(b.at||'').localeCompare(a.at||'')).slice(0,12);
+ const steps=[['Add a post','Press New post under Posts and upload a video or image, or let Claude draft one from Ideas.'],['Check it, then press Approve','Pick the accounts, write the caption and set the time. Nothing posts without an OK.'],['It posts by itself','At the time you chose, through Post for Me. It turns Live here, and its numbers show under Results.']];
+ const order=['awaiting','drafting','changes','approved','scheduled','published','failed','rejected'];
+ if(S.connUrl===undefined){S.connUrl=null;flApi('/api/connector').then(r=>{S.connUrl=r.url||'';S.connErr=r.url?'':(r.error||'');if(view==='system')paint(false)}).catch(()=>{S.connUrl=''})}
+ const cs=[['Copy the link below','Use the button. Keep it inside the team: anyone with it can post to the team’s accounts.'],['In Claude, open Settings → Connectors','Press Add custom connector. On a Team plan an owner can add it once for everyone under Admin settings → Connectors; then each person just presses Connect.'],['Name it '+appName(),'Paste the link as the URL and press Add.'],['Ask Claude to post your video','In a chat, switch the connector on from the + menu if needed, then say “post this to YouTube and LinkedIn on Friday at 1 pm”. It goes out at that time, or straight away if you give none. Ask for a draft instead and it waits here under Needs your OK.']];
+ return '<div class="panel rise mb"><div class="ph"><h3>Connect Claude</h3><small>Post straight from a Claude chat. Ask Claude to post a video and it writes the captions, makes the thumbnail and posts it to the accounts you name.</small></div><ol class="steps">'+cs.map((x,i)=>'<li><span class="stepn">'+(i+1)+'</span><div><b>'+x[0]+'</b><span>'+x[1]+'</span></div></li>').join('')+'</ol>'
+  +'<div class="field" style="display:flex;gap:8px;margin-top:14px"><input readonly id="conn-url" aria-label="Connector link" value="'+esc(S.connUrl?S.connUrl:S.connUrl===null?'Loading…':(S.connErr||'Not available'))+'" onfocus="this.select()" style="flex:1;font-family:var(--f-mono);font-size:12px"><button type="button" class="btn pri" data-act="copyconn"'+(S.connUrl?'':' disabled')+'>Copy link</button></div></div>'
+ +'<div class="panel rise mb"><div class="ph"><h3>From idea to live post in three steps</h3><button class="ghost" data-act="intro-show" data-tip="Show the 3-step guide on Home again">Show guide on Home</button></div><ol class="steps">'+steps.map((s,i)=>'<li><span class="stepn">'+(i+1)+'</span><div><b>'+s[0]+'</b><span>'+s[1]+'</span></div></li>').join('')+'</ol></div>'
+ +'<div class="panel rise mb"><div class="ph"><h3>What the labels mean</h3><small>The coloured dot next to every post</small></div><div class="list">'+order.map(k=>'<div class="li" style="grid-template-columns:190px minmax(0,1fr)"><span class="tag"><i class="dot '+ST[k][1]+'"></i>'+ST[k][0]+'</span><span class="muted">'+STHELP[k]+'</span></div>').join('')
+ +'<div class="li" style="grid-template-columns:190px minmax(0,1fr)"><span class="tag">More ▾</span><span class="muted"><b style="font-weight:500;color:var(--ink)">Pause</b> stops a post going out. <b style="font-weight:500;color:var(--ink)">Send back to Claude</b> asks for a rewrite using your note. <b style="font-weight:500;color:var(--ink)">Discard</b> drops it for good.</span></div>'
+ +'<div class="li" style="grid-template-columns:190px minmax(0,1fr)"><span class="tag">Delete</span><span class="muted">Stops a scheduled post, or one still being published, from going out. Once a post is live it can’t be deleted from here; remove it on the platform itself.</span></div></div></div>'
+ +'<div class="panel rise mb"><div class="ph"><h3>Behind the scenes</h3><small>'+loopLine()+'</small></div>'+svg+'</div>'
+ +'<div class="g g2"><div class="panel rise" style="--i:1"><div class="ph"><h3>How the numbers stay fresh</h3></div><div class="list">'+[['Instantly','Approving sends the post to Post for Me straight away. Post now usually goes live within a few minutes: the page that sent it checks back on its own, and Check now asks again.'],['Every 10 min','A scheduler inside the database (Supabase) runs the server’s check around the clock, even with every dashboard closed. It marks posts Live and retries anything that did not go through.'],['Every hour','The same check pulls each account feed from Post for Me once an hour and refreshes the numbers here. Refresh numbers does it on demand. A daily snapshot builds the trends.'],['Live','Every open dashboard picks up each change within seconds, so the whole team sees the same thing.']].map(r=>'<div class="li" style="grid-template-columns:110px minmax(0,1fr)"><b style="font-weight:500">'+r[0]+'</b><span class="muted">'+r[1]+'</span></div>').join('')+'</div></div>'
+ +'<div class="panel rise" style="--i:2"><div class="ph"><h3>Run log</h3><small>'+S.runs.length+' runs</small></div><ul class="hist">'+(runs.length?runs.map(r=>'<li><span><b>'+fdt(r.at)+'</b> · '+esc(r.summary)+'</span></li>').join(''):'<li><span>No runs yet.</span></li>')+'</ul></div></div>'
+ +(S.needs&&S.needs.length?'<div class="panel rise" style="--i:3;margin-top:14px"><div class="ph"><h3>What Claude needs from the team</h3></div><div class="list">'+S.needs.map(n=>'<div class="li"><i class="dot ring"></i><div style="min-width:0"><div class="t" style="white-space:normal">'+esc(n.t)+'</div><div class="s">'+esc(n.d)+'</div></div><span></span></div>').join('')+'</div></div>':'')}
+/* ---------- Studio ---------- */
+const OPEN=['awaiting','approved','changes','failed','drafting'];
+// Planned = approved for a time: booked in Post for Me, being handed over, or approved and waiting for Claude to finish it.
+const planned=q=>['approved','scheduled'].includes(q.status)||(q.status==='drafting'&&!!q.approved_at);
+function qMatch(q){return qfilter==='all'||(qfilter==='open'?OPEN.includes(q.status)&&!planned(q):qfilter==='scheduled'?planned(q):q.status===qfilter)}
+function mkDraft(q){return {id:q.id,isNew:!q.id,source:q.source||'claude',status:q.status||'awaiting',title:q.title||'',caption:q.caption||'',captions:Object.assign({x:'',linkedin:''},q.captions||{}),targets:(q.targets||q.account_ids||[]).slice(),ratio:q.ratio||'9x16',thumb_style:q.thumb_style||'ink',slot_at:q.slot_at||new Date(Date.now()+864e5).toISOString(),variants:q.variants||null,media_url:q.media_url||'',poster_url:q.poster_url||'',media_type:q.media_type||'video',note:'',yt_playlist:q.yt_playlist||'',formats:Object.assign({},DEFAULT_FMT,q.formats||{}),previewP:null,hold:!!q.hold,claude_cover:!!q.claude_cover,claude_caption:!!q.claude_caption,file:null,fileUrl:null,coverBlob:null,coverUrl:null,dims:q.dims||null,media_parts:q.media_parts||null,media_items:q.media_items||null,items:null,as_story:!!q.as_story,also_story:q.also_story===undefined?!q.id:!!q.also_story}}
+function curMedia(d){if(d.fileUrl)return{type:d.media_type,src:d.fileUrl,poster:d.coverUrl||''};if(d.variants&&d.variants[d.ratio]){const v=d.variants[d.ratio];return{type:'video',src:v.video,poster:(v.thumbs||{})[d.thumb_style]||''}}return{type:d.media_type,src:d.media_url,poster:d.poster_url}}
+function ratioVal(d){if(d.dims&&!d.variants)return d.dims.w/d.dims.h;return (RATIOS.find(r=>r[0]===d.ratio)||RATIOS[0])[2]}
+function frameSize(r){const H=innerWidth<640?380:470,W=Math.min(380,innerWidth-90);let h=H,w=h*r;if(w>W){w=W;h=w/r}return[Math.round(w),Math.round(h)]}
+function platformsOf(d){return [...new Set(d.targets.map(t=>(S.accounts[t]||{}).platform).filter(Boolean))]}
+function fitTags(d){const ps=platformsOf(d);if(!ps.length)return '<span class="muted">Pick at least one account.</span>';
+ return ps.map(p=>{const note=(FITNOTE[p]||{})[d.ratio];const best=(BEST[p]||[])[0]===d.ratio;return '<span class="tag'+(note?' warnt':'')+'" title="'+esc(note||'')+'"><i class="dot '+(note?'warn':best?'ok':'ring')+'"></i>'+PL[p].n+(note?' · check':best?' · best fit':' · works')+'</span>'}).join('')}
+function capFor(d,tab){return tab==='default'?d.caption:(d.captions[tab]||'')}
+function capLimit(tab){return tab==='x'?280:tab==='linkedin'?3000:2200}
+function vStudio(){const list=S.queue.filter(qMatch).sort((a,b)=>(a.slot_at||'').localeCompare(b.slot_at||''));
+ if(!draft&&!series){const q=list.find(x=>x.id===sel)||list[0];if(q){sel=q.id;draft=mkDraft(q)}}
+ const tabs=[['open','To do',S.queue.filter(q=>OPEN.includes(q.status)&&!planned(q)).length],['scheduled','Scheduled',S.queue.filter(planned).length],['published','Live',S.queue.filter(q=>q.status==='published').length],['all','All',S.queue.length]];
+ const TABTIP={open:'Posts that need your OK, or that Claude is drafting',scheduled:'Approved for a time: booked in Post for Me, or waiting for Claude to finish',published:'Already live on your accounts',all:'Every post, including discarded ones'};
+ const emptyList={open:'Nothing to do here.<br><span class="hint">Add a post, or get ideas from Claude.</span><div style="display:flex;gap:6px;justify-content:center;margin-top:12px"><button class="btn" data-act="newpost">Add a post</button><button class="btn" data-go="insights">Get ideas</button></div>',scheduled:'Nothing scheduled.<br><span class="hint">Approved posts show up here until they go live.</span>',published:'Nothing posted from here yet.',all:'No posts yet.'}[qfilter]||'Nothing here.';
+ const lr=S.runs.slice().sort((a,b)=>(b.at||'').localeCompare(a.at||''))[0];const warn=lr&&/key missing|unreachable|\berror|\bfailed\b/i.test(lr.summary||'')?'<div class="panel rise mb" style="border-color:var(--bad)"><div class="li" style="border:0;padding:0"><i class="dot bad"></i><div style="min-width:0"><div class="t" style="white-space:normal">Claude’s last run hit a problem</div><div class="s">'+esc(lr.summary)+' · '+fdt(lr.at)+'</div></div><span></span></div></div>':'';
+ return warn+'<div class="studio"><div class="qlist rise"><button class="btn pri" type="button" data-new style="justify-content:center;margin-bottom:6px" data-tip="Upload a video or image and set where and when it goes"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>New post</button>'
+ +'<button class="btn" type="button" data-series style="justify-content:center;margin-bottom:6px" data-tip="Group several posts into a YouTube playlist and space them out">Plan a series</button>'+'<div class="seg full" data-seg="q">'+tabs.map(t=>'<button type="button" data-qf="'+t[0]+'" aria-pressed="'+(qfilter===t[0])+'" title="'+TABTIP[t[0]]+'">'+t[1]+(t[2]?' <span class="mono" style="opacity:.6">'+t[2]+'</span>':'')+'</button>').join('')+'<i class="th"></i></div>'
+ +(list.length?list.map((q,i)=>'<button type="button" class="qi rise" style="--i:'+i+'" data-sel="'+esc(q.id)+'" aria-pressed="'+(sel===q.id)+'"><img src="'+esc(q.poster_url||'')+'" alt=""><div style="min-width:0"><b>'+esc(q.title||'Untitled post')+'</b><span><i class="dot '+((ST[q.status]||['','ring'])[1])+'"></i>'+esc((ST[q.status]||[q.status])[0])+(q.status==='drafting'?(q.post_now?' · then live':q.approved_at?' · then your OK':''):q.status==='approved'&&q.retry_at?' · YouTube limit, retries '+ftime(q.retry_at):'')+(q.hold?' · paused':'')+' · '+fd(q.slot_at)+'</span></div></button>').join(''):'<div class="empty">'+emptyList+'</div>')+'</div>'
+ +'<div id="editor">'+(series?seriesPanel():draft?editor():EDITOR_EMPTY)+'</div></div>'}
+function editor(){const d=draft;const m=curMedia(d);const [fw,fh]=frameSize(ratioVal(d));const accs=accList();const qd=S.queue.find(x=>x.id===d.id)||{};const waiting=d.status==='drafting'&&!!qd.post_now;const locked=['scheduled','published','rejected'].includes(d.status)||waiting;const due=!!qd.post_now||new Date(qd.slot_at||d.slot_at)<=Date.now();
+ const ratioSeg='<div class="seg full" data-seg="ratio">'+RATIOS.map(r=>'<button type="button" data-ratio="'+r[0]+'" aria-pressed="'+(d.ratio===r[0])+'"'+(d.variants||!d.dims?'':' disabled')+'>'+r[1]+'</button>').join('')+'<i class="th"></i></div>';
+ const thumbs=d.variants&&d.variants[pRatio(d)]&&Object.keys(d.variants[pRatio(d)].thumbs||{}).length>1?'<div class="thumbs">'+Object.entries(d.variants[pRatio(d)].thumbs||{}).map(([k,u])=>'<button type="button" data-thumb="'+k+'" aria-pressed="'+(d.thumb_style===k)+'"><img src="'+esc(u)+'" alt="'+esc(k)+' cover option"><span>'+esc(k)+'</span></button>').join('')+'</div>':isCarousel(d)?'<div class="muted">The first item is the cover.</div>':d.variants?'<div class="muted">Cover taken from the video.</div>':(d.fileUrl||d.isNew?'<div class="muted">'+(d.coverUrl?'Cover taken from the video at 1 second.':'Upload media to see the cover.')+'</div>':'<div class="muted">Claude adds cover options on its next run.</div>');
+ const st=ST[d.status]||[d.status,'ring'];
+ const lastH=((S.queue.find(q=>q.id===d.id)||{}).history||[]).slice(-1)[0];const failBox=d.status==='failed'&&lastH?'<div class="panel" style="border-color:var(--bad);margin-bottom:12px;padding:14px 16px"><div class="li" style="border:0;padding:0"><i class="dot bad"></i><div style="min-width:0"><div class="t" style="white-space:normal">This post did not go out</div><div class="s" style="white-space:normal">'+esc(lastH.note||lastH.event)+'</div></div><span></span></div></div>':'';
+ return failBox+'<div class="editor view"><div class="stage"><div class="frame-wrap"><div class="frame" id="frame" style="width:'+fw+'px;height:'+fh+'px"><span class="badge" id="fbadge">'+(d.dims&&!d.variants?d.dims.w+'×'+d.dims.h:(RATIOS.find(r=>r[0]===d.ratio)||[0,''])[1])+'</span>'
+ +(m.src?(m.type==='image'?'<img id="fmedia" src="'+esc(m.src)+'" alt="Post media">':'<video id="fmedia" src="'+esc(m.src)+'" poster="'+esc(m.poster)+'" muted loop playsinline controls preload="metadata"></video>'):(d.isNew?'<label for="upl" class="drop"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg><b>Upload a video or image</b><span>Click here, or drop a file<br>MP4, MOV, JPG or PNG · up to '+(window.flBigMb||window.flMaxMb||50)+' MB<br>Several files or a PDF make a carousel</span></label>':(m.poster?'<img src="'+esc(m.poster)+'" alt="">':'')+'<div style="position:absolute;inset:0;display:grid;place-items:center;color:#ddd;font-size:13px;text-shadow:0 1px 3px #000">'+(d.media_parts?'Loading the full video…':'No media yet')+'</div>'))+'</div></div>'
+ +(d.isNew?'<label class="btn" style="justify-content:center;cursor:pointer"><input type="file" id="upl" accept="video/mp4,video/quicktime,video/webm,image/png,image/jpeg,image/webp,application/pdf" multiple hidden>'+(d.file?'Replace files':'Upload video, images or a PDF')+'</label>':'')+stripHtml(d)
+ +'<div class="panel" style="padding:14px" id="fmtpanel">'+fmtPanel(d,ratioSeg)+'</div>'
+ +'<div class="panel" style="padding:14px"><div style="display:flex;justify-content:space-between;margin-bottom:8px"><span class="label">Cover</span><span class="muted">Made by Claude</span></div><div id="thumbs">'+thumbs+'</div>'
+ +(d.isNew||d.source==='team'?'<button type="button" class="tg" style="margin-top:10px;width:100%" role="switch" data-flag="claude_cover" aria-checked="'+d.claude_cover+'"><span></span><span><b>Let Claude design 3 covers</b><small>Added on the next run</small></span><i class="sw"></i></button>':'')+'</div></div>'
+ +'<div class="panel" style="padding:20px 22px 12px"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><span class="tag"><i class="dot '+st[1]+'"></i>'+esc(d.isNew?'New post':st[0])+(d.hold?' · paused':'')+'</span><span class="muted">'+(d.isNew?'':d.source==='team'?'Added by the team':'Drafted by Claude')+'</span></div>'
+ +'<div class="stnote"><i class="dot '+(d.isNew?'ring':st[1])+'"></i><span>'+(d.isNew?'Upload a video or image, fill in the four steps, then press Approve.':d.hold?'Paused: it won’t go out until someone presses Resume (under More).':esc(STHELP[d.status]||''))+'</span></div>'
+ +'<div class="sect"><div class="field"><label class="label" for="f-title"><span class="n">1</span>Title</label><input id="f-title" value="'+esc(d.title)+'" placeholder="What this post is called on YouTube and in this queue"'+(locked?' disabled':'')+'></div></div>'
+ +'<div class="sect" id="plsect"'+(platformsOf(d).includes('youtube')?'':' hidden')+'><div class="field"><label class="label" for="f-pl">YouTube playlist</label><input id="f-pl" list="pl-list" value="'+esc(d.yt_playlist)+'" placeholder="Pick or type a playlist name"'+(locked?' disabled':'')+'><datalist id="pl-list">'+[...new Set(S.queue.map(q=>q.yt_playlist).filter(Boolean))].map(p=>'<option value="'+esc(p)+'">').join('')+'</datalist><span class="muted" style="font-size:12px">Post for Me can’t set playlists yet, so once the video is live Claude adds it to this playlist in YouTube Studio. A new name creates the playlist.</span></div></div>'+'<div class="sect"><div class="lh"><span class="label"><span class="n">2</span>Where it goes</span><span class="muted">'+d.targets.length+' of '+accs.length+' picked</span></div><p class="hint">Tap each account this should be posted to.</p><div class="targets">'+accs.map(a=>'<button type="button" class="tg" role="switch" data-target="'+a.id+'" aria-checked="'+d.targets.includes(a.id)+'"'+(locked?' disabled':'')+'>'+glyph(a.platform)+'<span style="min-width:0"><b>'+esc(accName(a))+'</b><small>'+esc(a.username)+'</small></span><i class="sw"></i></button>').join('')+'</div></div>'
+ +'<div class="sect" id="storysect"'+(platformsOf(d).some(p=>p==='instagram'||p==='facebook')?'':' hidden')+'><span class="label">Stories · Instagram and Facebook</span><div class="g g2" style="gap:8px;margin-top:8px">'
+ +'<button type="button" class="tg" role="switch" data-flag="also_story" aria-checked="'+(!!d.also_story&&!d.as_story)+'"'+(locked||d.as_story?' disabled':'')+'><span></span><span><b>Also share it as a story</b><small>The post, plus a story with the same video</small></span><i class="sw"></i></button>'
+ +'<button type="button" class="tg" role="switch" data-flag="as_story" aria-checked="'+!!d.as_story+'"'+(locked?' disabled':'')+'><span></span><span><b>Post only as a story</b><small>No feed post on Instagram and Facebook</small></span><i class="sw"></i></button></div>'
+ +'<p class="hint" style="margin-top:6px">Stories work best vertical (9:16) and under a minute.</p></div>'
+ +'<div class="sect"><div class="lh"><span class="label"><span class="n">3</span>Caption</span><div class="ctabs" title="Write one caption for everywhere. X and LinkedIn can have their own.">'+[['default','All platforms'],['x','X'],['linkedin','LinkedIn']].map(t=>'<button type="button" data-ctab="'+t[0]+'" aria-pressed="'+(capTab===t[0])+'">'+t[1]+'</button>').join('')+'</div></div>'
+ +'<div class="field"><textarea id="f-cap" placeholder="'+(capTab==='default'?'Caption used everywhere unless a platform has its own':'Leave empty to use the main caption')+'"'+(locked?' disabled':'')+'>'+esc(capFor(d,capTab))+'</textarea><div class="cc" id="cc"></div></div>'
+ +(d.isNew||d.source==='team'?'<button type="button" class="tg" role="switch" data-flag="claude_caption" aria-checked="'+d.claude_caption+'"><span></span><span><b>Let Claude write the captions</b><small>Claude drafts all platforms. Approve brings it back for your OK; Publish now sends it straight out</small></span><i class="sw"></i></button>':'')+'</div>'
+ +'<div class="sect g g2" style="gap:12px"><div class="field"><label class="label" for="f-slot"><span class="n">4</span>When it goes out · IST</label><input type="datetime-local" id="f-slot" value="'+toLocalInput(d.slot_at)+'"'+(locked?' disabled':'')+'></div><div class="field"><label class="label" for="f-note">Note for Claude · optional</label><input id="f-note" placeholder="Only if you send it back to Claude"'+(locked?' disabled':'')+'></div></div>'
+ +((S.queue.find(q=>q.id===d.id)||{}).history?'<div class="sect"><span class="label">History</span><ul class="hist">'+(S.queue.find(q=>q.id===d.id).history||[]).slice(-6).reverse().map(h=>'<li><span><b>'+esc(h.by_name||(h.by==='claude'?'Claude':(S.names[h.by]||'Team')))+'</b> '+esc(h.event)+(h.note?' · “'+esc(h.note)+'”':'')+' <span class="muted">'+fdt(h.at)+'</span></span></li>').join('')+'</ul></div>':'')
+ +'<div class="actbar"><div class="l"><i class="dot '+(d.targets.length?'ok':'warn')+'"></i><span id="sumline">'+summary(d)+'</span></div><div class="r">'+(locked||waiting?lockedBar(d,due,waiting):actions(d))+'</div></div></div></div>'}
+// What a post that is on its way out (or already out) offers: a plain status line, and Delete until it goes live.
+function lockedBar(d,due,waiting){const m=t=>'<span class="muted">'+t+'</span>';
+ const del='<button class="btn bad" data-act="delete" data-tip="Stop it going out. Works until it goes live.">Delete</button>';
+ if(waiting)return m('Publishing now: Claude is finishing the caption and cover, then it goes live by itself.')+del;
+ if(d.status==='scheduled'&&due)return m('Sent to Post for Me. It turns Live once every account confirms.')+'<button class="btn" data-act="checklive" data-tip="Ask Post for Me now instead of waiting for the next check">Check now</button>'+del;
+ if(d.status==='scheduled')return m('Booked in Post for Me. It goes out by itself. You can delete it until then.')+del;
+ return m({published:'It’s live. Live posts can’t be deleted from here; remove it on the platform itself.',rejected:'Discarded. It won’t go out.'}[d.status]||'Locked')}
+// One obvious button (Approve), one fast lane (Publish now), and everything else under More, each with a plain explanation.
+function actions(d){const mi=(a,t,s,cls)=>'<button type="button" data-a="'+a+'"'+(cls?' class="'+cls+'"':'')+'><b>'+t+'</b><span>'+s+'</span></button>';
+ const items=d.isNew?[mi('savenew','Save for later','Keep it in To do without approving it')]
+  :[mi('save','Save changes','Keep your edits without approving'),d.hold?mi('unhold','Resume','Let it go out again at its time'):mi('hold','Pause','Keep it from going out until someone resumes it'),mi('changes','Send back to Claude','Claude revises it using your note in step 4'),mi('reject','Discard','It will not be posted','danger')];
+ const later=d.claude_caption||d.claude_cover;
+ return '<div class="more"><button type="button" class="btn" data-more aria-haspopup="true" data-tip="Save, pause, send back or discard">More ▾</button><div class="menu" hidden>'+items.join('')+'</div></div>'
+  +'<button class="btn" data-a="'+(d.isNew?'postnownew':'postnow')+'" data-tip="Skip the schedule and post right away. If Claude is writing the caption or cover, it finishes first, then the post goes live by itself.">Publish now</button>'
+  +'<button class="btn pri" data-a="'+(d.isNew?'approvenew':'approve')+'" data-tip="'+(later?'Claude finishes it first, then it comes back for a final OK':'It goes out by itself at the time in step 4')+'">Approve<small>'+(later?'Claude finishes it first':'Goes out '+fdt(d.slot_at))+'</small></button>'}
+function nextSlot(){const now=Date.now();const ist=new Date(now+330*6e4);let d=new Date(Date.UTC(ist.getUTCFullYear(),ist.getUTCMonth(),ist.getUTCDate(),7,52)-330*6e4);for(let i=0;i<48;i++){const h=new Date(d.getTime()+330*6e4).getUTCHours();if(h>=7&&h<=22&&d.getTime()>now+2*6e4)return new Date(d.getTime()+15*6e4).toISOString();d=new Date(d.getTime()+36e5)}return new Date(now+36e5).toISOString()}
+function summary(d){const n=d.targets.length;return n?(n+' account'+(n>1?'s':'')+' · '+(RATIOS.find(r=>r[0]===d.ratio)||[0,'auto'])[1]+' · '+fdt(d.slot_at)):'Pick at least one account in step 2'}
+function updCC(){const t=$('#f-cap');if(!t)return;const v=t.value.length,l=capLimit(capTab);let s=v+' / '+l;if(capTab==='x'&&!t.value&&draft.caption.length>280&&platformsOf(draft).includes('x'))s='Main caption is '+draft.caption.length+' characters. X needs its own under 280';const c=$('#cc');c.textContent=s;c.classList.toggle('over',v>l||(capTab==='x'&&!t.value&&draft.caption.length>280&&platformsOf(draft).includes('x')))}
+function refreshStage(){const d=draft;const f=$('#frame');if(!f)return;const [w,h]=frameSize(ratioVal(d));f.style.width=w+'px';f.style.height=h+'px';const m=curMedia(d);const el=$('#fmedia');
+ if(el&&m.src&&el.getAttribute('src')!==m.src){el.classList.add('fade');setTimeout(()=>{el.setAttribute('src',m.src);if(m.poster)el.setAttribute('poster',m.poster);el.classList.remove('fade')},250)}else if(el&&m.poster&&el.getAttribute('poster')!==m.poster){el.classList.add('fade');setTimeout(()=>{el.setAttribute('poster',m.poster);el.classList.remove('fade')},200)}
+ $('#fbadge').textContent=(pPlat(d)?PL[pPlat(d)].n+' · ':'')+(RATIOS.find(r=>r[0]===pRatio(d))||[0,''])[1];const fp=$('#fmtpanel');if(fp){fp.innerHTML=fmtPanel(d,'');}
+ const tb=$('#thumbs');if(tb&&d.variants&&d.variants[pRatio(d)]&&Object.keys(d.variants[pRatio(d)].thumbs||{}).length>1)tb.innerHTML='<div class="thumbs">'+Object.entries(d.variants[pRatio(d)].thumbs||{}).map(([k,u])=>'<button type="button" data-thumb="'+k+'" aria-pressed="'+(d.thumb_style===k)+'"><img src="'+esc(u)+'" alt="'+esc(k)+' cover option"><span>'+esc(k)+'</span></button>').join('')+'</div>';
+ $('#sumline').textContent=summary(d);const pl=$('#plsect');if(pl)pl.hidden=!platformsOf(d).includes('youtube');const ss=$('#storysect');if(ss)ss.hidden=!platformsOf(d).some(p=>p==='instagram'||p==='facebook');segs();updCC()}
+
+/* per-platform formats */
+const DEFAULT_FMT={instagram:'9x16',facebook:'9x16',linkedin:'9x16',x:'16x9',youtube:'16x9'};
+function pPlat(d){const ps=platformsOf(d);return d.previewP&&ps.includes(d.previewP)?d.previewP:ps[0]||null}
+// The other cut of the team's own video (9:16 from 16:9, or 16:9 from 9:16), made in this browser by /reframe.js.
+// No server and no Claude run; it takes about as long as the video plays.
+const CUTS=[['blur','Blurred edges'],['black','Black edges'],['crop','Crop to fill']];
+const fdur=s=>s<60?s+' s':Math.floor(s/60)+' min '+(s%60?(s%60)+' s':'');
+function cutTarget(d){return !isCarousel(d)&&d.media_type==='video'&&d.dims&&!d.variants?(d.dims.w>=d.dims.h?'9x16':'16x9'):null}
+function cutBox(d){const tgt=cutTarget(d),qd=S.queue.find(x=>x.id===d.id)||{};
+ if(!tgt||!(d.fileUrl||d.media_url)||['scheduled','published','rejected'].includes(d.status)||(d.status==='drafting'&&qd.post_now))return '';
+ const name=tgt==='9x16'?'vertical 9:16':'landscape 16:9',lbl=RATIOS.find(r=>r[0]===tgt)[1];
+ if(cut&&cut.d===d){const pct=Math.round(cut.pct*100),left=cut.dur?Math.round(cut.dur*(1-cut.pct)):0;
+  return '<div class="cut" id="cutbox"><b>Making the '+name+' version… '+pct+'%</b><div class="bar"><i style="width:'+pct+'%"></i></div><span class="muted">'+(left?'About '+fdur(left)+' left. ':'')+'Keep this tab open and in front until it’s done.</span><div><button type="button" class="btn" data-act="cutstop">Stop</button></div></div>'}
+ return '<div class="cut" id="cutbox"><div><b>Make a '+name+' version</b> <span class="muted">for '+(tgt==='9x16'?'Instagram, Facebook and YouTube Shorts':'YouTube, LinkedIn and X')+'. It’s made right here in your browser in about the length of the video, with no Claude run.</span></div>'
+  +'<div class="seg full">'+CUTS.map(c=>'<button type="button" data-act="cutstyle" data-cs="'+c[0]+'" aria-pressed="'+(cutStyle===c[0])+'">'+c[1]+'</button>').join('')+'<i class="th"></i></div>'
+  +'<div><button type="button" class="btn" data-act="cut" data-cut="'+tgt+'"'+(cut?' disabled title="Another version is being made"':'')+'>Make the '+lbl+' version</button></div></div>'}
+function paintCut(){const b=$('#cutbox');if(b&&draft){b.outerHTML=cutBox(draft);segs()}}
+// Each platform gets the cut that suits it best; YouTube keeps the original (a regular video, or a Short if it was vertical).
+function cutFormats(vs,native){const f={};Object.keys(BEST).forEach(p=>{f[p]=p==='youtube'?native:(BEST[p].find(r=>vs[r])||native)});return f}
+async function makeCut(target){const d=draft;if(!d||cut)return;const src=d.fileUrl||d.media_url,native=d.ratio,lbl=RATIOS.find(r=>r[0]===target)[1];
+ cut={d,pct:0,dur:0,ctrl:new AbortController()};paintCut();
+ try{const {reframe}=await import('/reframe.js');
+  const r=await reframe(src,target,cutStyle,(p,dur)=>{const step=Math.floor(p*100)!==Math.floor(cut.pct*100);cut.pct=p;cut.dur=dur;if(step)paintCut()},cut.ctrl.signal);
+  let vs;
+  if(d.isNew){d.conv={ratio:target,blob:r.blob,poster:r.poster};vs={[native]:{video:d.fileUrl,thumbs:{ink:d.coverUrl||''}},[target]:{video:URL.createObjectURL(r.blob),thumbs:{ink:URL.createObjectURL(r.poster)}}}}
+  else{toast('Uploading the '+lbl+' version…');const assets=await claude.use('assets');if(!assets)throw new Error('Sign in again to upload.');
+   const v=await assets.upload(r.blob),pu=await assets.upload(r.poster);vs={[native]:{video:d.media_url,thumbs:{ink:d.poster_url||''}},[target]:{video:v.url,thumbs:{ink:pu.url}}}}
+  d.variants=vs;d.formats=cutFormats(vs,native);d.thumb_style='ink';
+  if(!d.isNew){const q=S.queue.find(x=>x.id===d.id)||{},now=new Date().toISOString();
+   await db.collection('queue').doc(d.id).update({variants:vs,formats:d.formats,ratio:native,thumb_style:'ink',account_media:accountMedia(d),updated_at:now,history:(q.history||[]).concat([{at:now,by:S.me||'team',event:'made a '+lbl+' version'}])})}
+  toast('The '+lbl+' version is ready. Each platform now gets the cut that fits it; change it under Format.'+(d.isNew?' It’s uploaded when you save or approve.':''))}
+ catch(e){toast(e&&e.name==='AbortError'?'Stopped. Nothing was changed.':((e&&e.message)||'Could not make the new version.'))}
+ finally{cut=null;if(draft===d)rerenderEditor()}}
+function pRatio(d){if(!d.variants)return d.ratio;const p=pPlat(d);return p?(d.formats[p]||d.ratio):d.ratio}
+function rlab(r){return (RATIOS.find(x=>x[0]===r)||[0,r])[1]}
+function fmtPanel(d,single){if(!d.variants){return '<div class="lh" style="display:flex;justify-content:space-between;margin-bottom:8px"><span class="label">Format</span><span class="muted">'+(d.dims?d.dims.w+'×'+d.dims.h:'From your file')+'</span></div>'+(single||'')+'<div class="fit" style="margin-top:10px">'+fitTags(d)+'</div>'+cutBox(d)}
+ const ps=platformsOf(d);if(!ps.length)return '<span class="label">Format per platform</span><p class="muted" style="margin:8px 0 0">Pick accounts to set a format for each.</p>';
+ return '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px"><span class="label">Format per platform</span><span class="muted">One post, the right cut everywhere</span></div><div style="display:grid;gap:8px">'+ps.map(p=>{const r=d.formats[p]||d.ratio;const note=(FITNOTE[p]||{})[r];return '<div style="display:grid;grid-template-columns:96px minmax(0,1fr);gap:10px;align-items:center"><button type="button" class="ghost" data-pv="'+p+'" style="justify-content:flex-start;padding:6px 8px;'+(pPlat(d)===p?'border-color:var(--ink)':'')+'" title="Preview '+PL[p].n+'"><i class="dot '+(note?'warn':'ok')+'"></i>'+PL[p].n+'</button><div class="seg full">'+RATIOS.map(x=>'<button type="button" data-pf="'+p+'" data-r="'+x[0]+'" aria-pressed="'+(r===x[0])+'"'+(d.variants[x[0]]?'':' disabled title="No '+x[1]+' version of this video"')+'>'+x[1]+'</button>').join('')+'<i class="th"></i></div></div>'+(note?'<div class="muted" style="grid-column:2;font-size:11.5px;margin:-4px 0 2px 106px;color:var(--warn)">'+esc(note)+'</div>':'')}).join('')+'</div>'}
+function fitTags(d){const ps=platformsOf(d);if(!ps.length)return '<span class="muted">Pick at least one account.</span>';return ps.map(p=>{const r=d.variants?(d.formats[p]||d.ratio):d.ratio;const note=(FITNOTE[p]||{})[r];return '<span class="tag'+(note?' warnt':'')+'"><i class="dot '+(note?'warn':'ok')+'"></i>'+PL[p].n+' · '+rlab(r)+'</span>'}).join('')}
+function curMedia(d){if(d.fileUrl&&!d.conv)return{type:d.media_type,src:d.fileUrl,poster:d.coverUrl||''};const r=pRatio(d);if(d.variants&&d.variants[r]){const v=d.variants[r];return{type:'video',src:v.video,poster:(v.thumbs||{})[d.thumb_style]||''}}if(d.media_parts&&d.media_parts.length&&!d.media_url)return{type:d.media_type,src:partsUrl(d),poster:d.poster_url};return{type:d.media_type,src:d.media_url,poster:d.poster_url}}
+/* large files: stored as several parts under the 20 MiB asset cap, joined again for preview and by Claude before posting */
+const PART=15*1048576,PARTS={};
+function partsUrl(d){const k=d.media_parts.join(',');const c=PARTS[k];if(c&&c.url)return c.url;if(!c){PARTS[k]={};Promise.all(d.media_parts.map(id=>fetch('/_blob/'+id).then(r=>{if(!r.ok)throw 0;return r.blob()}))).then(bs=>{PARTS[k].url=URL.createObjectURL(new Blob(bs,{type:d.media_mime||'video/mp4'}));if(draft&&draft.media_parts&&draft.media_parts.join(',')===k)rerenderEditor()}).catch(()=>{PARTS[k].fail=1})}return ''}
+async function uploadMedia(assets,f){{const up=await assets.upload(f);return{url:up.url,parts:null}}
+ const cuts=[0];let b=PART;while(b<f.size){const head=new Uint8Array(await f.slice(b,b+256).arrayBuffer());let i=0;while(i<head.length&&[9,10,12,13,32,60].includes(head[i]))i++;b+=i;if(b>=f.size)break;cuts.push(b);b+=PART}cuts.push(f.size);
+ const n=cuts.length-1,ids=[];for(let i=0;i<n;i++){toast('Uploading '+f.name+' · part '+(i+1)+' of '+n+'…');const up=await assets.upload(f.slice(cuts[i],cuts[i+1],f.type),{type:f.type});ids.push(up.id)}return{url:'',parts:ids}}
+function ratioVal(d){if(d.dims&&!d.variants)return d.dims.w/d.dims.h;return (RATIOS.find(r=>r[0]===pRatio(d))||RATIOS[0])[2]}
+function summary(d){const n=d.targets.length;if(!n)return 'Pick at least one account in step 2';const ps=platformsOf(d);const f=d.variants?[...new Set(ps.map(p=>d.formats[p]||d.ratio))].map(rlab).join(' + '):rlab(d.ratio);return n+' account'+(n>1?'s':'')+' · '+f+' · '+fdt(d.slot_at)}
+function accountMedia(d){if(!d.variants)return null;const m={};d.targets.forEach(id=>{const p=(S.accounts[id]||{}).platform;const r=d.formats[p]||d.ratio;const v=d.variants[r];if(v)m[id]={ratio:r,video:v.video,poster:(v.thumbs||{})[d.thumb_style]||''}});return m}
+
+/* series / playlist planner */
+let series=null;
+function seriesPanel(){const s=series;const open=S.queue.filter(q=>['awaiting','approved','changes','drafting'].includes(q.status)&&!q.pfm_post_id);
+ const pls=[...new Set(S.queue.map(q=>q.yt_playlist).filter(Boolean))];
+ return '<div class="panel view" style="padding:22px"><div class="ph"><h3>Plan a series</h3><small>Group posts into a playlist and space them out automatically</small></div>'
+ +'<div class="g g2" style="gap:12px"><div class="field"><label class="label" for="s-name">Series and YouTube playlist</label><input id="s-name" list="s-pl" value="'+esc(s.name)+'" placeholder="e.g. Weekly tips"><datalist id="s-pl">'+pls.map(p=>'<option value="'+esc(p)+'">').join('')+'</datalist></div>'
+ +'<div class="field"><label class="label" for="s-start">First episode goes out · IST</label><input type="datetime-local" id="s-start" value="'+toLocalInput(s.start)+'"></div></div>'
+ +'<div class="sect"><span class="label">Cadence</span><div class="seg full">'+[['daily','Every day'],['weekday','Every weekday'],['weekly','Every week'],['twice','Twice a week']].map(c=>'<button type="button" data-cad="'+c[0]+'" aria-pressed="'+(s.cad===c[0])+'">'+c[1]+'</button>').join('')+'<i class="th"></i></div></div>'
+ +'<div class="sect"><div class="lh"><span class="label">Episodes, in order</span><span class="muted">'+s.ids.length+' selected · tap to add, use the arrows to reorder</span></div><div class="list">'
+ +open.map(q=>{const i=s.ids.indexOf(q.id);return '<div class="li" style="grid-template-columns:auto 44px minmax(0,1fr) auto"><button type="button" class="tg" role="switch" data-sid="'+esc(q.id)+'" aria-checked="'+(i>=0)+'" style="padding:6px;border:0;background:transparent"><i class="sw"></i></button><img class="thumbmini" src="'+esc(q.poster_url||'')+'" alt=""><div style="min-width:0"><div class="t">'+(i>=0?'<span class="mono" style="color:var(--ink3)">EP '+String(i+1).padStart(2,'0')+'</span> ':'')+esc(q.title)+'</div><div class="s">'+(i>=0?fdt(seriesSlots()[i]):'Not in this series')+'</div></div>'+(i>=0?'<span style="display:flex;gap:4px"><button type="button" class="ghost" data-smv="'+esc(q.id)+':-1" aria-label="Move up">↑</button><button type="button" class="ghost" data-smv="'+esc(q.id)+':1" aria-label="Move down">↓</button></span>':'<span></span>')+'</div>'}).join('')+'</div></div>'
+ +'<div class="sect"><button type="button" class="tg" role="switch" data-sflag="number" aria-checked="'+s.number+'"><span></span><span><b>Add “EP 01, EP 02…” to titles</b><small>Keeps the playlist in order on YouTube</small></span><i class="sw"></i></button><button type="button" class="tg" role="switch" data-sflag="approve" aria-checked="'+s.approve+'" style="margin-top:8px"><span></span><span><b>Approve all episodes now</b><small>Claude schedules each one in Post for Me on the next run</small></span><i class="sw"></i></button></div>'
+ +'<div class="actbar"><div class="l"><i class="dot '+(s.ids.length&&s.name?'ok':'warn')+'"></i><span>'+(s.ids.length?s.ids.length+' episodes · '+fd(seriesSlots()[0])+' to '+fd(seriesSlots()[s.ids.length-1]):'Pick episodes to plan')+'</span></div><div class="r"><button class="btn" data-sact="cancel">Cancel</button><button class="btn pri" data-sact="save"'+(s.ids.length&&s.name?'':' disabled')+'>Plan series</button></div></div></div>'}
+function seriesSlots(){const s=series;const out=[];let t=new Date(s.start);const step=d=>{const n=new Date(d);if(s.cad==='daily')n.setUTCDate(n.getUTCDate()+1);else if(s.cad==='weekly')n.setUTCDate(n.getUTCDate()+7);else if(s.cad==='twice')n.setUTCDate(n.getUTCDate()+(out.length%2?4:3));else{do{n.setUTCDate(n.getUTCDate()+1)}while([0,6].includes(new Date(n.getTime()+330*6e4).getUTCDay()))}return n};
+ for(let i=0;i<s.ids.length;i++){out.push(t.toISOString());t=step(t)}return out}
+function openSeries(){const nx=new Date(Date.now()+864e5);const ist=new Date(nx.getTime()+330*6e4);const start=new Date(Date.UTC(ist.getUTCFullYear(),ist.getUTCMonth(),ist.getUTCDate(),11,0)-330*6e4).toISOString();
+ series={name:'',start,cad:'weekly',ids:[],number:true,approve:false};draft=null;sel=null;$$('.qi').forEach(b=>b.setAttribute('aria-pressed','false'));const ed=$('#editor');ed.innerHTML=seriesPanel();segs()}
+function rerenderSeries(){const ed=$('#editor');if(ed&&series){ed.innerHTML=seriesPanel();segs()}}
+async function saveSeries(){const s=series;const slots=seriesSlots();if(slots.some(x=>new Date(x)<Date.now()+10*6e4)){toast('The first episode needs to be at least 10 minutes from now.');return}
+ const now=new Date().toISOString(),me=S.me||'team';$$('[data-sact]').forEach(b=>b.disabled=true);
+ try{for(let i=0;i<s.ids.length;i++){const q=S.queue.find(x=>x.id===s.ids[i]);if(!q)continue;let title=(q.title||'').replace(/^EP \d+ · /,'');if(s.number)title='EP '+String(i+1).padStart(2,'0')+' · '+title;
+   const patch={yt_playlist:s.name,series:{name:s.name,ep:i+1,of:s.ids.length},slot_at:slots[i],title,updated_at:now,history:(q.history||[]).concat([{at:now,by:me,event:'added to series “'+s.name+'” as episode '+(i+1)+' of '+s.ids.length}])};
+   if(s.approve){patch.status='approved';patch.approved_by=me;patch.approved_at=now}await db.collection('queue').doc(q.id).update(patch)}
+  toast('Series planned: '+s.ids.length+' episodes in “'+s.name+'”.');series=null;rerenderEditor()}catch(err){toast('Could not save the series: '+((err&&err.message)||'try again'));$$('[data-sact]').forEach(b=>b.disabled=false)}}
+/* ---------- Insights ---------- */
+function vInsights(){const I=S.insights;if(!I)return '<div class="g g3">'+[0,1,2].map(()=>'<div class="panel"><div class="skel" style="height:120px"></div></div>').join('')+'</div>';
+ const cross=I.crosspost_fb_ig.fb?Math.round(I.crosspost_fb_ig.matched/I.crosspost_fb_ig.fb*100):0;const eng=(I.totals_90d.comments||0)+(I.totals_90d.shares||0)+(I.totals_90d.likes||0);
+ const k=(i,l,v,suf,sub)=>'<div class="panel spot lift kpi rise" style="--i:'+i+'"><span class="label">'+l+'</span><div class="v"><span class="num" data-count="'+v+'"'+(String(v).includes('.')?' data-dec="1"':'')+'>0</span><span style="font-size:24px;color:var(--ink3)">'+suf+'</span></div><div class="d"><span>'+sub+'</span></div></div>';
+ const mx=Math.max(...I.themes.map(t=>t.share),1);
+ const hm=I.heat;const hmax=Math.max(1,...hm.flat());const DN=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+ let heat='<div class="tbl"><svg class="chart" viewBox="0 0 760 210" role="img" aria-label="Posts by weekday and hour, IST" style="min-width:560px">';
+ for(let h=6;h<24;h++)heat+='<text class="ax" x="'+(52+(h-6)*39+17)+'" y="204" text-anchor="middle">'+(h%3===0?(h>12?h-12+'p':h===12?'12p':h+'a'):'')+'</text>';
+ DN.forEach((d,r)=>{heat+='<text class="ax" x="40" y="'+(r*27+19)+'" text-anchor="end">'+d+'</text>';for(let h=6;h<24;h++){const v=hm[r][h];heat+='<rect x="'+(52+(h-6)*39)+'" y="'+(r*27+2)+'" width="35" height="23" rx="5" fill="var(--ink)" fill-opacity="'+(v?0.12+0.88*v/hmax:0.04)+'" data-tip="'+d+' '+h+':00 IST · '+v+' posts" style="animation:rise .6s var(--ease) both;animation-delay:'+((r*18+h)*6)+'ms"/>'}});heat+='</svg></div>';
+ const tmax=Math.max(1,...I.hashtags.map(t=>t.count));
+ return '<div class="g g4 mb">'+k(0,'Brand posts · 90 days',I.brand_posts_90d,'','Facebook, Instagram, LinkedIn page')+k(1,'Posts per week',I.per_week,'','Average over 13 weeks')+k(2,'Cross-posted',cross,'%','Facebook posts copied to Instagram')+k(3,'Measured engagement',eng,'','Comments, shares and likes reported')+'</div>'
+ +'<div class="panel rise mb" style="--i:4"><div class="ph"><h3>Claude’s read</h3><small>From '+I.brand_posts_90d+' posts · updated '+ago(I.generated_at)+'</small></div><div class="g g3">'+(I.recos||[]).map((r,i)=>'<div class="panel lift rise" style="--i:'+(5+i)+';background:var(--raised);display:flex;flex-direction:column"><span class="label">'+esc(r.k)+'</span><h4 style="font:400 24px/1.1 var(--f-display);margin:10px 0 8px">'+esc(r.t)+'</h4><p style="margin:0 0 16px;font-size:13px;color:var(--ink2)">'+esc(r.b)+'</p><div style="margin-top:auto;display:grid;border-top:1px solid var(--line)">'+String(r.ev).split(' · ').map(x=>'<span class="mono" style="font-size:11.5px;padding:7px 0;border-bottom:1px solid var(--line);color:var(--ink);overflow-wrap:anywhere">'+esc(x)+'</span>').join('')+'</div></div>').join('')+'</div></div>'
+ +'<div class="g g21 mb"><div class="panel rise" style="--i:11"><div class="ph"><h3>Content mix</h3><small>Share of brand posts, 90 days</small></div><div class="list">'+I.themes.map((t,i)=>'<div class="li" style="grid-template-columns:150px minmax(0,1fr) 48px"><span style="font-weight:500">'+esc(t.name)+'</span><div><div style="height:10px;border-radius:99px;background:var(--sunk);overflow:hidden"><i style="display:block;height:100%;width:'+(t.share/mx*100)+'%;background:var(--ink);border-radius:99px;transform-origin:left;animation:barx .9s var(--ease) both;animation-delay:'+(i*70)+'ms"></i></div><div class="s" style="margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+t.posts+' posts · e.g. '+(t.example_url?'<a href="'+esc(t.example_url)+'" target="_blank" rel="noopener">'+esc(t.example)+'</a>':esc(t.example))+'</div></div><span class="num" style="text-align:right">'+t.share+'%</span></div>').join('')+'</div></div>'
+ +'<div class="panel rise" style="--i:12"><div class="ph"><h3>Hashtags in use</h3><small>Top 10</small></div><div class="list">'+I.hashtags.slice(0,10).map(t=>'<div class="li" style="grid-template-columns:minmax(0,1fr) 90px 34px;padding:8px 0"><span class="mono" style="font-size:12.5px">#'+esc(t.tag)+'</span><div style="height:6px;border-radius:99px;background:var(--sunk);overflow:hidden"><i style="display:block;height:100%;width:'+(t.count/tmax*100)+'%;background:var(--ink)"></i></div><span class="num muted" style="text-align:right">'+t.count+'</span></div>').join('')+'</div></div></div>'
+ +'<div class="panel rise mb" style="--i:13"><div class="ph"><h3>When you post</h3><small>IST, 90 days · darker means more posts</small></div>'+heat+'</div>'
+ +'<div class="panel rise mb" style="--i:14"><div class="ph"><h3>Trend radar</h3><small>What is moving this week, matched to one of your content lanes</small></div><div class="g g2">'+(I.trends||[]).map((t,i)=>'<div class="panel lift rise" style="--i:'+(15+i)+';background:var(--raised)"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center"><span class="tag">'+esc(t.lane)+'</span><button class="ghost" data-draft="'+i+'">Ask Claude to draft</button></div><h4 style="font:400 24px/1.12 var(--f-display);margin:12px 0 8px">'+esc(t.topic)+'</h4><p style="margin:0 0 10px;color:var(--ink2);font-size:13px">'+esc(t.why)+'</p><p style="margin:0 0 12px;font-size:13px"><b style="font-weight:500">Post idea:</b> '+esc(t.idea)+'</p><div class="muted" style="font-size:12px">'+t.src.map(s=>'<a href="'+esc(s.u)+'" target="_blank" rel="noopener">'+esc(s.t)+'</a>').join(' · ')+'</div></div>').join('')+'</div></div>'
+ +'<div class="panel rise" style="--i:20"><div class="ph"><h3>Data coverage</h3><small>What each account reports through Post for Me</small></div><div class="tbl"><table><thead><tr><th>Account</th><th class="n">Posts on record</th><th style="min-width:280px">Metrics shared</th></tr></thead><tbody>'+accList().map(a=>{const c=(I.coverage||{})[a.id]||{};return '<tr><td>'+esc(accName(a))+'</td><td class="n">'+(c.posts||0)+'</td><td>'+mchips(c.metric_keys)+'</td></tr>'}).join('')+'</tbody></table></div></div>'}
+
+/* ---------- actions ---------- */
+async function saveDraft(kind){const d=draft;if(!db)return;$$('.menu').forEach(m=>m.hidden=true);
+ // The two steps that cannot be undone ask first.
+ if(kind==='reject'&&!confirm('Discard this post?\n\nIt will not be posted.'))return;let now_flag=false;if(kind==='postnow'||kind==='postnownew'){d.slot_at=new Date().toISOString();now_flag=true;kind=kind==='postnow'?'approve':'approvenew'}const note=($('#f-note')||{}).value||'';
+ if(['approve','approvenew'].includes(kind)){if(!d.targets.length){toast('Pick at least one account first.');return}if(!now_flag&&new Date(d.slot_at)<Date.now()+10*6e4){toast('Pick a time at least 10 minutes from now.');return}
+  if(platformsOf(d).includes('x')&&!d.captions.x&&d.caption.length>280&&!d.claude_caption){toast('X needs its own caption under 280 characters.');capTab='x';rerenderEditor();return}
+  if(isCarousel(d)&&platformsOf(d).includes('youtube')){toast('YouTube can’t post a carousel. Untick the YouTube accounts.');return}
+  if(isCarousel(d)&&platformsOf(d).includes('linkedin')&&carouselItems(d).some(x=>x.type==='video')){toast('LinkedIn carousels can only be images. Untick LinkedIn, or remove the videos.');return}
+  if(platformsOf(d).includes('youtube')&&!d.title){toast('YouTube needs a title.');return}
+  if(!d.caption.trim()&&!d.claude_caption){toast('Add a caption first (YouTube uses it as the description), or turn on “Let Claude write the captions”.');capTab='default';rerenderEditor();const c=$('#f-cap');if(c)c.focus();return}}
+ if(kind==='changes'&&!note.trim()){toast('Add a note so Claude knows what to change.');$('#f-note').focus();return}
+ const now=new Date().toISOString(),me=S.me||'team';const v=d.variants&&d.variants[d.ratio];
+ const patch={title:d.title,caption:d.caption,captions:d.captions,targets:d.targets,account_ids:d.targets,platforms:platformsOf(d),ratio:d.ratio,thumb_style:d.thumb_style,slot_at:d.slot_at,updated_at:now,claude_cover:d.claude_cover,claude_caption:d.claude_caption,as_story:!!d.as_story,also_story:!!d.also_story&&!d.as_story,yt_playlist:d.yt_playlist||null};
+ if(d.variants){patch.formats=d.formats;patch.account_media=accountMedia(d);const pv=d.variants[pRatio(d)]||v;if(pv){patch.media_url=pv.video;patch.poster_url=(pv.thumbs||{})[d.thumb_style]||d.poster_url}}else if(v){patch.media_url=v.video;patch.poster_url=(v.thumbs||{})[d.thumb_style]||d.poster_url}
+ const ev={save:'saved changes',approve:now_flag?'approved to post now':'approved',changes:'asked for changes',reject:'rejected',hold:'put on hold',unhold:'lifted the hold',savenew:'added a post for review',approvenew:'added and approved a post'}[kind];
+ if(kind==='approve'||kind==='approvenew')patch.post_now=now_flag;
+ if(kind==='approve'||kind==='approvenew'){patch.status=d.claude_caption||d.claude_cover?'drafting':'approved';patch.approved_by=me;patch.approved_at=now}
+ if(kind==='changes')patch.status='changes';if(kind==='reject')patch.status='rejected';if(kind==='hold')patch.hold=true;if(kind==='unhold')patch.hold=false;if(kind==='savenew')patch.status=d.claude_caption||d.claude_cover?'drafting':'awaiting';
+ if(note)patch.note=note;$$('.actbar .btn').forEach(b=>b.disabled=true);
+ try{
+  if(d.isNew){if(!d.file){toast('Upload a video or image first.');$$('.actbar .btn').forEach(b=>b.disabled=false);return}
+   const assets=await claude.use('assets');if(!assets){toast('Sign in again to upload.');$$('.actbar .btn').forEach(b=>b.disabled=false);return}
+   if((d.items||[{file:d.file}]).some(it=>it.file.size>(window.flBigMb||50)*1048576)){toast('Files must be under '+(window.flBigMb||50)+' MB. Export a smaller version and try again.');$$('.actbar .btn').forEach(b=>b.disabled=false);return}
+   if(d.items&&d.items.length>1){const mi=[];for(const [i,it] of d.items.entries()){toast('Uploading '+(i+1)+' of '+d.items.length+'…');const u=await assets.upload(it.file);mi.push({url:u.url,type:it.type,mime:it.file.type||(it.type==='image'?'image/jpeg':'video/mp4')})}
+    Object.assign(patch,{media_items:mi,media_url:mi[0].url,media_type:mi[0].type,dims:d.dims,poster_url:(mi.find(x=>x.type==='image')||{}).url||''})}
+   else{toast('Uploading '+d.file.name+' ('+(d.file.size/1048576).toFixed(0)+' MB)…');const up=await uploadMedia(assets,d.file);patch.media_url=up.url;patch.media_type=d.media_type;patch.dims=d.dims;if(up.parts){patch.media_parts=up.parts;patch.media_size=d.file.size;patch.media_mime=d.file.type||'video/mp4';patch.media_name=d.file.name}
+   if(d.coverBlob){const c=await assets.upload(d.coverBlob);patch.poster_url=c.url}else if(d.media_type==='image')patch.poster_url=up.url;
+   if(d.conv){const cv=await assets.upload(d.conv.blob),cp=await assets.upload(d.conv.poster);const own=(patch.poster_url||'').startsWith('blob:')?'':patch.poster_url||'';const vs={[d.ratio]:{video:up.url,thumbs:{ink:own}},[d.conv.ratio]:{video:cv.url,thumbs:{ink:cp.url}}};Object.assign(patch,{variants:vs,media_url:up.url,poster_url:own,formats:d.formats,account_media:accountMedia(Object.assign({},d,{variants:vs}))})}}
+   patch.source='team';patch.created_at=now;patch.created_by=me;patch.kind=d.items&&d.items.length>1?'Carousel · '+d.items.length:d.media_type==='image'?'Image post':'Video post';patch.history=[{at:now,by:me,event:ev,note:note||null}];
+   const ref=await db.collection('queue').add(patch);sel=ref.id;draft=null;if(patch.status==='approved'){sendToPfm(ref.id,now_flag);return}if(now_flag){wakeClaude(ref.id);return}toast(patch.status==='drafting'?'Saved. Claude finishes it on its next run.':'Saved for review.')}
+  else{const q=S.queue.find(x=>x.id===d.id)||{};patch.history=(q.history||[]).concat([{at:now,by:me,event:ev,note:note||null}]);await db.collection('queue').doc(d.id).update(patch);if(patch.status==='approved'){draft=null;sendToPfm(d.id,now_flag);return}if(now_flag){draft=null;wakeClaude(d.id);return}
+   toast({approve:patch.status==='drafting'?'Approved. Claude finishes the cover and captions first.':'Approved.',changes:'Sent back to Claude.',reject:'Rejected.',hold:'On hold.',unhold:'Hold lifted.',save:'Saved.'}[kind]);draft=null}
+ }catch(e){toast('Could not save: '+((e&&e.message)||'try again'));$$('.actbar .btn').forEach(b=>b.disabled=false)}}
+// Several images or videos make a carousel; a PDF becomes its pages as images (via /pdfpages.js). One file = a normal post.
+function carouselItems(d){return d.items?d.items.map(it=>({url:it.url,type:it.type})):(d.media_items||[])}
+const isCarousel=d=>carouselItems(d).length>1;
+async function handleFiles(list){const fs=[...list],d=draft;if(!fs.length||!d)return;
+ const pdf=fs.find(f=>f.type==='application/pdf'||/\.pdf$/i.test(f.name));
+ if(pdf){toast('Turning the PDF pages into images…');try{const {pdfToImages}=await import('/pdfpages.js');const r=await pdfToImages(pdf,{max:20});if(!d.title)d.title=pdf.name.replace(/\.[^.]+$/,'').replace(/[-_]+/g,' ');setItems(d,r.files);toast(r.total>20?'Only the first 20 of '+r.total+' pages are used (LinkedIn’s limit).':r.files.length+' pages ready as a carousel.')}catch(e){toast('Couldn’t read that PDF.')}return}
+ if(fs.length===1){handleFile(fs[0]);return}
+ if(fs.length>20)toast('A carousel takes up to 20 files; the first 20 are used.');setItems(d,fs.slice(0,20))}
+function setItems(d,files){if(files.length===1){handleFile(files[0]);return}(d.items||[]).forEach(it=>URL.revokeObjectURL(it.url));
+ d.conv=null;d.variants=null;d.items=files.map(f=>({file:f,url:URL.createObjectURL(f),type:f.type.startsWith('image')?'image':'video'}));
+ const f0=d.items[0];d.file=f0.file;d.media_type=f0.type;d.fileUrl=f0.url;d.coverBlob=null;d.coverUrl=f0.type==='image'?f0.url:'';d.dims=null;
+ if(!d.title)d.title=f0.file.name.replace(/\.[^.]+$/,'').replace(/[-_]+/g,' ');
+ if(f0.type==='image'){const im=new Image();im.onload=()=>{d.dims={w:im.naturalWidth,h:im.naturalHeight};d.ratio=nearRatio(d.dims);rerenderEditor()};im.src=f0.url}else rerenderEditor()}
+function stripHtml(d){const its=carouselItems(d);if(its.length<2)return '';
+ return '<div class="strip">'+its.map((it,i)=>'<div class="si">'+(it.type==='image'?'<img src="'+esc(it.url)+'" alt="Item '+(i+1)+'">':'<video src="'+esc(it.url)+'" muted preload="metadata"></video>')+'<span>'+(i+1)+'</span>'+(d.isNew?'<button type="button" data-act="rmitem" data-i="'+i+'" aria-label="Remove item '+(i+1)+'">×</button>':'')+'</div>').join('')+'</div>'
+  +'<p class="hint" style="margin-top:6px">Carousel of '+its.length+'. Instagram shows the first 10, X the first 4. YouTube can’t post carousels; LinkedIn takes images only.</p>'}
+function handleFile(f){const d=draft;d.items=null;d.conv=null;d.variants=null;d.file=f;d.media_type=f.type.startsWith('image')?'image':'video';if(d.fileUrl)URL.revokeObjectURL(d.fileUrl);d.fileUrl=URL.createObjectURL(f);if(!d.title)d.title=f.name.replace(/\.[^.]+$/,'').replace(/[-_]+/g,' ');
+ if(d.media_type==='image'){const im=new Image();im.onload=()=>{d.dims={w:im.naturalWidth,h:im.naturalHeight};d.ratio=nearRatio(d.dims);rerenderEditor()};im.src=d.fileUrl}
+ else{const v=document.createElement('video');v.muted=true;v.preload='auto';v.src=d.fileUrl;v.onloadedmetadata=()=>{d.dims={w:v.videoWidth,h:v.videoHeight};d.ratio=nearRatio(d.dims);v.currentTime=Math.min(1,v.duration/2)};
+  v.onseeked=()=>{const c=document.createElement('canvas');c.width=v.videoWidth;c.height=v.videoHeight;c.getContext('2d').drawImage(v,0,0);c.toBlob(b=>{d.coverBlob=b;d.coverUrl=URL.createObjectURL(b);rerenderEditor()},'image/jpeg',.88)}}}
+function nearRatio(dm){const r=dm.w/dm.h;return RATIOS.reduce((a,b)=>Math.abs(b[2]-r)<Math.abs(a[2]-r)?b:a)[0]}
+const EDITOR_EMPTY='<div class="panel empty">Pick a post on the left to check it,<br>or press <b>New post</b> to add one.</div>';
+function rerenderEditor(){const e=$('#editor');if(e){e.innerHTML=draft?editor():EDITOR_EMPTY;segs();updCC()}}
+
+function loopLine(){const h=S.hb;if(!h||!h.at)return 'Runs every 10 minutes, around the clock';const late=Date.now()-new Date(h.at)>30*6e4;return '<i class="dot '+(late?'warn':'ok')+'"></i> Last check '+ago(h.at)+(late?' · should run every 10 minutes':' · every 10 minutes')}
+// After Post now, ask Post for Me again at about 1, 2.5, 4.5 and 9.5 minutes, until it is Live or failed.
+function watchLive(id,waits){if(!waits.length)return;setTimeout(async()=>{const q=S.queue.find(x=>x.id===id);if(q&&q.status!=='scheduled'&&q.status!=='approved')return;try{await flApi('/api/publish',{id,check:true})}catch(e){}watchLive(id,waits.slice(1))},waits[0])}
+async function checkLive(b){const id=draft&&draft.id;if(!id)return;b.disabled=true;const r=await flApi('/api/publish',{id,check:true});b.disabled=false;
+ if(r.state==='published'||r.state==='failed'){draft.status=r.state;rerenderEditor()}
+ toast({published:'It’s live.',failed:'It didn’t go out on every account. The reason is in the history.',pending:'Not live yet. Post for Me is still publishing; it turns Live here by itself.',unchanged:'Already up to date.'}[r.state]||(r.error||'The server did not answer. Try again in a minute.'))}
+// Publish now on a post Claude still has to finish: start Claude right away; the server publishes it the moment Claude is done.
+async function wakeClaude(id){const r=await flApi('/api/publish',{id,claude:true}).catch(()=>({}));
+ toast(r.fired?'Claude is finishing the caption and cover now. It goes live by itself as soon as Claude is done, usually within a few minutes.':'Claude finishes it on its next scheduled run, then it goes live by itself.')}
+// Delete works until a post goes live. After that it stays up, and the team removes it on the platform itself.
+async function deletePost(b){const id=draft&&draft.id;if(!id)return;if(!confirm('Delete this post?\n\nIt won’t go out. Posts can be deleted until they go live, not after.'))return;
+ b.disabled=true;const r=await flApi('/api/publish',{id,remove:true}).catch(()=>({}));b.disabled=false;
+ if(r.ok){draft=null;toast('Deleted. It won’t go out.');return}toast(r.error||'Could not delete it. Try again in a minute.')}
+async function sendToPfm(id,now){toast(now?'Posting now…':'Scheduling in Post for Me…');const r=await flApi('/api/publish',{id});
+ if(r.ok){if(now)watchLive(id,[60e3,90e3,120e3,300e3]);toast(now?'Sent. It usually goes live within a few minutes; this page checks back and updates on its own.':'Scheduled in Post for Me for '+fdt((S.queue.find(q=>q.id===id)||{}).slot_at)+'.');return}
+ const why={on_hold:'it is on hold',not_approved:'it is not approved',already_sent:'it was already sent',slot_passed:'the time slot has passed. Pick a new time and approve again',busy:'it is already being sent'}[r.reason]||(r.error||'the server did not answer');
+ toast((r.reason==='error'?'Post for Me refused it: ':'Not sent: ')+why+(r.reason==='error'?'':'.'))}
+/* ---------- shell ---------- */
+VIEWS.insights=['Ideas','Ideas for <em>what’s next</em>','What is working on your accounts, and trending topics Claude can draft into a post for you.'];
+ICON.insights='<path d="M12 3a6 6 0 0 0-3.5 10.9V17h7v-3.1A6 6 0 0 0 12 3zM9.5 21h5"/>';
+ICON.system='<circle cx="12" cy="12" r="9"/><path d="M9.5 9.2a2.6 2.6 0 0 1 5 .9c0 1.7-2.5 2.2-2.5 3.9M12 17.2v.1"/>';
+const ORDERV=['overview','studio','calendar','performance','insights','channels','system'];
+const RENDER={overview:vOverview,studio:vStudio,insights:vInsights,performance:vPerformance,calendar:vCalendar,channels:vChannels,system:vSystem};
+function segs(){$$('.seg').forEach(s=>{const b=s.querySelector('button[aria-pressed="true"]'),t=s.querySelector('.th');if(!t)return;if(!b){t.style.width='0';return}t.style.left=b.offsetLeft+'px';t.style.width=b.offsetWidth+'px'})}
+function countUp(root){$$('[data-count]',root).forEach(el=>{const to=Number(el.dataset.count)||0,dec=el.dataset.dec?1:0;if(matchMedia('(prefers-reduced-motion: reduce)').matches||!to){el.textContent=dec?to.toFixed(1):fmt(to);return}const t0=performance.now(),D=1100;
+ const step=t=>{const p=Math.min(1,(t-t0)/D),e=1-Math.pow(1-p,4),v=to*e;el.textContent=dec?v.toFixed(1):(to>=1e3?fmt(v):String(Math.round(v)));if(p<1)requestAnimationFrame(step)};requestAnimationFrame(step)})}
+function navInd(){const a=$('#nav a[aria-current="page"]'),i=$('#navind');if(a&&i)i.style.transform='translateY('+a.offsetTop+'px)'}
+function paint(anim){const v=$('#view');v.innerHTML='<div class="view">'+(VIEWS[view]?'<div class="hero"><div><h1>'+VIEWS[view][1]+'</h1><p>'+VIEWS[view][2]+'</p></div></div>':'')+RENDER[view]()+'</div>';
+ if(!anim)v.firstChild.style.animation='none',$$('.rise',v).forEach(e=>e.style.animation='none'),$$('.draw',v).forEach(e=>{e.style.animation='none';e.style.strokeDashoffset='0'}),$$('.bars rect,[style*="barx"]',v).forEach(e=>e.style.animation='none');
+ if(anim)countUp(v);else $$('[data-count]',v).forEach(el=>{const to=Number(el.dataset.count)||0;el.textContent=el.dataset.dec?to.toFixed(1):fmt(to)});
+ segs();updCC()}
+function go(id,push){if(!VIEWS[id])id='overview';const same=id===view;view=id;$$('#nav a').forEach(a=>a.id==='nav-'+id?a.setAttribute('aria-current','page'):a.removeAttribute('aria-current'));navInd();
+ $('#crumbs').textContent=teamName()+' / '+VIEWS[id][0];document.title=appName()+' · '+VIEWS[id][0];
+ const run=()=>{paint(true);window.scrollTo({top:0,behavior:same?'smooth':'instant'})};
+ if(document.startViewTransition&&!same&&!matchMedia('(prefers-reduced-motion: reduce)').matches)document.startViewTransition(run);else run();
+ try{history.replaceState(null,'','#'+id)}catch(e){}}
+let pend=null;function soft(){if(pend)return;pend=requestAnimationFrame(()=>{pend=null;liveBits();if(view==='studio'){const l=$('.qlist');const had=!!draft;if(l){const tmp=document.createElement('div');tmp.innerHTML=vStudio();const nl=tmp.querySelector('.qlist');nl.querySelectorAll('.rise').forEach(e=>e.style.animation='none');nl.classList.remove('rise');l.replaceWith(nl);if(!had&&!series)rerenderEditor();if(series)rerenderSeries();segs()}else paint(false)}else paint(false)})}
+function liveBits(){const c=counts();const n=$('#nav-studio .count');if(n)n.textContent=c.awaiting||'';
+ const s=S.sync;$('#synctxt').textContent=s?'Numbers updated '+ago(s.synced_at):'Numbers not loaded yet';$('#syncdot').className='dot '+(s&&Date.now()-new Date(s.synced_at)<2*36e5?'ok':'warn');
+ const r=$('#refresh');if(r){const p=S.req&&S.req.requested_at&&(!s||S.req.requested_at>s.synced_at)&&Date.now()-new Date(S.req.requested_at)<15*6e4;void p}}
+$('#nav').insertAdjacentHTML('beforeend',ORDERV.map(k=>'<a href="#'+k+'" id="nav-'+k+'" title="'+esc(NAVHINT[k])+'"'+(k==='system'?' class="nav-help"':'')+'><svg viewBox="0 0 24 24" aria-hidden="true">'+ICON[k]+'</svg>'+VIEWS[k][0]+(k==='studio'?'<span class="count" title="Posts waiting for your OK"></span>':'')+'</a>').join(''));
+document.addEventListener('click',async e=>{const t=e.target;
+ const nav=t.closest('#nav a');if(nav){e.preventDefault();go(nav.id.slice(4));return}
+ const g=t.closest('[data-go]');if(g){e.preventDefault();go(g.dataset.go);return}
+ const qf=t.closest('[data-qf]');if(qf){qfilter=qf.dataset.qf;draft=null;sel=null;paint(false);return}
+ const pf=t.closest('[data-perf]');if(pf){perfAcc=pf.dataset.perf;paint(true);return}
+ const sl=t.closest('[data-sel]');if(sl){series=null;sel=sl.dataset.sel;const q=S.queue.find(x=>x.id===sel);draft=mkDraft(q);capTab='default';$$('.qi').forEach(b=>b.setAttribute('aria-pressed',b.dataset.sel===sel));rerenderEditor();return}
+ if(t.closest('[data-new]')){startNewPost();$$('.qi').forEach(b=>b.setAttribute('aria-pressed','false'));rerenderEditor();return}
+ if(t.closest('[data-series]')){openSeries();return}
+ if(series){const sid=t.closest('[data-sid]');if(sid){const id=sid.dataset.sid,i=series.ids.indexOf(id);i>=0?series.ids.splice(i,1):series.ids.push(id);rerenderSeries();return}
+  const cad=t.closest('[data-cad]');if(cad){series.cad=cad.dataset.cad;rerenderSeries();return}
+  const mv=t.closest('[data-smv]');if(mv){const [id,dir]=mv.dataset.smv.split(':');const i=series.ids.indexOf(id),j=i+Number(dir);if(j>=0&&j<series.ids.length){series.ids.splice(i,1);series.ids.splice(j,0,id)}rerenderSeries();return}
+  const sf=t.closest('[data-sflag]');if(sf){series[sf.dataset.sflag]=!series[sf.dataset.sflag];rerenderSeries();return}
+  const sa=t.closest('[data-sact]');if(sa){if(sa.dataset.sact==='cancel'){series=null;rerenderEditor()}else saveSeries();return}}
+ if(!draft&&!t.closest('[data-draft]')&&!t.closest('#refresh')&&!t.closest('#theme'))return;
+ const tg=t.closest('[data-target]');if(tg&&!tg.disabled){const id=tg.dataset.target;const i=draft.targets.indexOf(id);i>=0?draft.targets.splice(i,1):draft.targets.push(id);tg.setAttribute('aria-checked',i<0);refreshStage();return}
+ const fl=t.closest('[data-flag]');if(fl){draft[fl.dataset.flag]=!draft[fl.dataset.flag];fl.setAttribute('aria-checked',draft[fl.dataset.flag]);if(fl.dataset.flag==='as_story'){const a=$('[data-flag="also_story"]');if(a){a.disabled=draft.as_story;a.setAttribute('aria-checked',!!draft.also_story&&!draft.as_story)}}return}
+ const pfm=t.closest('[data-pf]');if(pfm){draft.formats[pfm.dataset.pf]=pfm.dataset.r;draft.previewP=pfm.dataset.pf;refreshStage();return}
+ const pvw=t.closest('[data-pv]');if(pvw){draft.previewP=pvw.dataset.pv;refreshStage();return}
+ const ra=t.closest('[data-ratio]');if(ra&&!ra.disabled){draft.ratio=ra.dataset.ratio;$$('[data-ratio]').forEach(b=>b.setAttribute('aria-pressed',b===ra));refreshStage();return}
+ const th=t.closest('[data-thumb]');if(th){draft.thumb_style=th.dataset.thumb;$$('[data-thumb]').forEach(b=>b.setAttribute('aria-pressed',b===th));refreshStage();return}
+ const ct=t.closest('[data-ctab]');if(ct){capTab=ct.dataset.ctab;$$('[data-ctab]').forEach(b=>b.setAttribute('aria-pressed',b===ct));$('#f-cap').value=capFor(draft,capTab);$('#f-cap').placeholder=capTab==='default'?'Caption used everywhere unless a platform has its own':'Leave empty to use the main caption';updCC();return}
+ const a=t.closest('[data-a]');if(a){saveDraft(a.dataset.a);return}
+});
+document.addEventListener('click',async e=>{const dr=e.target.closest('[data-draft]');if(dr&&db){const tr=(S.insights.trends||[])[+dr.dataset.draft];dr.disabled=true;try{await db.collection('requests').add({type:'draft',topic:tr.topic,idea:tr.idea,lane:tr.lane,requested_at:new Date().toISOString(),by:S.me||'team',status:'open'});toast('Asked Claude to draft this. It appears in the Studio after Claude’s next run.');dr.textContent='Requested'}catch(err){toast('Could not send the request.');dr.disabled=false}}
+ if(e.target.closest('#refresh')&&db){const rb=$('#refresh');if(rb){rb.disabled=true;rb.lastChild.textContent=' Syncing…'}toast('Pulling fresh numbers from every account…');
+  const r=await flApi('/api/sync',{});if(rb){rb.disabled=false;rb.lastChild.textContent=' Refresh numbers'}
+  toast(r.ok?'Numbers updated: '+r.accounts+' accounts.':'Sync failed: '+(r.error||'try again'))}});
+document.addEventListener('input',e=>{if(series){if(e.target.id==='s-name'){series.name=e.target.value;const b=$('[data-sact="save"]');if(b)b.disabled=!(series.ids.length&&series.name)}if(e.target.id==='s-start'){const v=fromLocalInput(e.target.value);if(v){series.start=v;rerenderSeries();const el=$('#s-start');if(el){el.focus()}}}return}if(!draft)return;const id=e.target.id;if(id==='f-title')draft.title=e.target.value;if(id==='f-pl')draft.yt_playlist=e.target.value;if(id==='f-cap'){capTab==='default'?draft.caption=e.target.value:draft.captions[capTab]=e.target.value;updCC()}if(id==='f-slot'){const v=fromLocalInput(e.target.value);if(v){draft.slot_at=v;$('#sumline').textContent=summary(draft);const ps=$('.actbar .pri small');if(ps&&!draft.claude_caption&&!draft.claude_cover)ps.textContent='Goes out '+fdt(v)}}});
+// A new post starts with no accounts picked, so nothing goes anywhere by accident.
+function startNewPost(){series=null;sel=null;draft=mkDraft({targets:[]});draft.isNew=true;draft.source='team';capTab='default'}
+// The More menu in the post editor: opens on click, closes on any click outside it or on Escape.
+// It opens from the button's left edge and slides left only if the panel (which clips overflow) would cut it off.
+function fitMenu(menu){menu.style.left='0px';const box=(menu.closest('.panel')||document.body).getBoundingClientRect(),r=menu.getBoundingClientRect(),over=r.right-(box.right-8);if(over>0)menu.style.left=Math.max(-over,box.left+8-r.left)+'px'}
+document.addEventListener('click',e=>{const m=e.target.closest('[data-more]');$$('.menu').forEach(x=>{if(!m||x.previousElementSibling!==m)x.hidden=true});if(m){const menu=m.nextElementSibling;menu.hidden=!menu.hidden;if(!menu.hidden)fitMenu(menu)}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')$$('.menu').forEach(x=>x.hidden=true)});
+// Buttons that jump to a task from anywhere (Home's next-step card, empty states, the guide).
+document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b)return;e.preventDefault();const a=b.dataset.act;
+ if(a==='intro-done'){try{localStorage.setItem('fl-sc-intro','done')}catch(err){}paint(false);return}
+ if(a==='intro-show'){try{localStorage.removeItem('fl-sc-intro')}catch(err){}go('overview');return}
+ if(a==='newpost'){startNewPost();go('studio');return}
+ if(a==='checklive'){checkLive(b);return}
+ if(a==='delete'){deletePost(b);return}
+ if(a==='copyconn'){navigator.clipboard.writeText(S.connUrl||'').then(()=>toast('Link copied. Paste it in Claude → Settings → Connectors → Add custom connector.'),()=>{const i=$('#conn-url');if(i){i.focus();i.select()}toast('Press ⌘C to copy the selected link.')});return}
+ if(a==='rmitem'&&draft&&draft.items){const keep=draft.items.filter((_,i)=>i!==+b.dataset.i).map(it=>it.file);setItems(draft,keep);return}
+ if(a==='cut'){makeCut(b.dataset.cut);return}
+ if(a==='cutstop'){if(cut)cut.ctrl.abort();return}
+ if(a==='cutstyle'){cutStyle=b.dataset.cs;$$('[data-cs]').forEach(x=>x.setAttribute('aria-pressed',x===b));segs();return}
+ if(a==='review'){qfilter='open';series=null;draft=null;sel=(S.queue.filter(q=>q.status==='awaiting').sort((x,y)=>(x.slot_at||'').localeCompare(y.slot_at||''))[0]||{}).id||null;go('studio');return}
+ if(a==='failed'){qfilter='open';series=null;draft=null;sel=(S.queue.find(q=>q.status==='failed')||{}).id||null;go('studio');return}
+ if(a==='list'){qfilter=b.dataset.list;series=null;draft=null;sel=null;go('studio');return}});
+// Drag a file onto the preview of a new post to upload it.
+['dragover','dragleave','drop'].forEach(ev=>document.addEventListener(ev,e=>{const f=e.target.closest&&e.target.closest('#frame');if(!f||!draft||!draft.isNew)return;e.preventDefault();f.classList.toggle('over',ev==='dragover');if(ev==='drop'&&e.dataTransfer.files[0])handleFiles(e.dataTransfer.files)}));
+document.addEventListener('change',e=>{if(e.target.id==='upl'&&e.target.files[0])handleFiles(e.target.files)});
+document.addEventListener('pointermove',e=>{const p=e.target.closest&&e.target.closest('.spot');if(p){const r=p.getBoundingClientRect();p.style.setProperty('--mx',(e.clientX-r.left)+'px');p.style.setProperty('--my',(e.clientY-r.top)+'px')}
+ const tip=$('#tip');const d=e.target.closest&&e.target.closest('[data-tip]');if(d){tip.textContent=d.dataset.tip;tip.style.left=Math.min(innerWidth-tip.offsetWidth-12,e.clientX+14)+'px';tip.style.top=(e.clientY-36)+'px';tip.classList.add('on')}else tip.classList.remove('on')});
+addEventListener('resize',()=>{segs();navInd()});
+const tb=$('#theme');const eff=()=>document.documentElement.getAttribute('data-theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');const lab=()=>{$('#themetxt').textContent=eff()==='dark'?'Light':'Dark'};
+try{const s=localStorage.getItem('fl-sc-theme');if(s==='dark'||s==='light')document.documentElement.setAttribute('data-theme',s)}catch(e){}
+tb.addEventListener('click',()=>{const n=eff()==='dark'?'light':'dark';const f=()=>{document.documentElement.setAttribute('data-theme',n);lab()};document.startViewTransition&&!matchMedia('(prefers-reduced-motion: reduce)').matches?document.startViewTransition(f):f();try{localStorage.setItem('fl-sc-theme',n)}catch(e){}});lab();
+{const h=(location.hash||'').slice(1).split('/');if(h[0]==='studio'&&h[1]){sel=decodeURIComponent(h[1]);qfilter='all'}go(h[0]||'overview')}setTimeout(navInd,50);
+(async()=>{try{db=await claude.use('db');user=await claude.use('user')}catch(e){}
+ if(!db){$('#livetxt').textContent='Offline view';return}
+ try{S.me=user?await user.id():null}catch(e){}
+ $('#pulse').classList.remove('off');$('#livetxt').textContent='Live';
+ const on=(ref,f)=>ref.onSnapshot(s=>{f(s);soft()},()=>{});
+ on(db.collection('accounts'),s=>{S.accounts={};s.docs.forEach(d=>S.accounts[d.id]=d.data())});
+ on(db.collection('queue'),async s=>{S.queue=s.docs.map(d=>({id:d.id,...d.data()}));const ids=[...new Set(S.queue.flatMap(q=>(q.history||[]).map(h=>h.by)).filter(x=>x&&!['claude','server','team'].includes(x)&&!S.names[x]))];if(ids.length&&user&&user.profiles){try{const ps=await user.profiles(ids);ids.forEach(i=>S.names[i]=(ps[i]&&ps[i].name)||'Someone');soft()}catch(e){}}});
+ on(db.doc('sync/latest'),d=>{const prev=S.sync&&S.sync.synced_at;S.sync=d.exists?d.data():null;const now=S.sync&&S.sync.synced_at;if(prev&&now&&now!==prev)toast('Numbers updated · synced at '+ftime(now)+'.')});
+ on(db.doc('insights/latest'),d=>{S.insights=d.exists?d.data():null});
+ on(db.doc('config/needs'),d=>{S.needs=d.exists?(d.data().items||[]):[]});
+ on(db.doc('requests/refresh'),d=>{S.req=d.exists?d.data():null});
+ on(db.doc('sync/heartbeat'),d=>{S.hb=d.exists?d.data():null});
+ on(db.collection('runs'),s=>{S.runs=s.docs.map(d=>d.data())});
+ on(db.collection('snapshots'),s=>{S.snaps=s.docs.map(d=>({d:d.id,...d.data()}))});
+ setInterval(liveBits,60000);
+})();
+})();
+</script>
+
+</body></html>

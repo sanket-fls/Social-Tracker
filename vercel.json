@@ -1,0 +1,12 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": { "api/*.js": { "maxDuration": 300 } },
+  "crons": [{ "path": "/api/cron?sync=1&src=vercel", "schedule": "30 2 * * *" }],
+  "headers": [
+    { "source": "/(.*)", "headers": [
+      { "key": "X-Frame-Options", "value": "DENY" },
+      { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+      { "key": "X-Content-Type-Options", "value": "nosniff" }
+    ] }
+  ]
+}

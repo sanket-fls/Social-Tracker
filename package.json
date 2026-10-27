@@ -1,0 +1,17 @@
+{
+  "name": "social-tracker",
+  "private": true,
+  "type": "module",
+  "description": "Social Command: a team dashboard where Claude drafts social posts, people approve them, and Post for Me publishes them.",
+  "license": "MIT",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "check": "node scripts/check.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.45.4",
+    "@vercel/functions": "3.9.11",
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "zod": "4.6.5"
+  }
+}

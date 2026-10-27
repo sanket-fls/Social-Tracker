@@ -1,0 +1,33 @@
+name: Background loop
+# Optional backup for the 10-minute loop (the main one runs in Supabase, supabase/cron.sql).
+# Calls /api/cron: send waiting approved posts, mark scheduled posts live, sync numbers hourly.
+# Needs two repository secrets: APP_URL (e.g. https://your-app.vercel.app) and CRON_SECRET (same value as on Vercel).
+# To use it: copy this file to .github/workflows/tick.yml in your repo, then remove the two # below to turn the schedule on.
+on:
+  # schedule:
+  #   - cron: '*/10 * * * *'
+  workflow_dispatch:
+    inputs:
+      sync:
+        description: 'Force a numbers sync'
+        type: boolean
+        default: false
+
+permissions: {}
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Call /api/cron
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          FORCE: ${{ inputs.sync && '1' || '0' }}
+        run: |
+          if [ -z "$APP_URL" ] || [ -z "$CRON_SECRET" ]; then echo "APP_URL / CRON_SECRET secrets not set yet"; exit 0; fi
+          code=$(curl -sS -o out.json -w '%{http_code}' --max-time 320 \
+            -H "Authorization: Bearer $CRON_SECRET" "$APP_URL/api/cron?sync=$FORCE")
+          cat out.json; echo
+          test "$code" = "200"
